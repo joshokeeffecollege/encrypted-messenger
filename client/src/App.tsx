@@ -24,7 +24,7 @@ const App: React.FC = () => {
     };
 
     // when register is successful, send user back to login
-    const handleRegisterSuccess = (username: string) => {
+    const handleRegisterSuccess = (_username: string) => {
         // Optionally you could store `username` to prefill the login form later.
         setMode("login");
     };
@@ -49,7 +49,7 @@ const App: React.FC = () => {
                             Logged in as <span className="font-semibold">{user.username}</span>
                         </p>
                         <p className="text-sm text-slate-400">
-                            Chat UI will go here (encrypted conversations, contacts, etc.).
+                            Chat UI will go here.
                         </p>
                         <button
                             onClick={handleLogout}
