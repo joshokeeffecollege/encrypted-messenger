@@ -15,7 +15,11 @@ router.post('/register', async (req, res) => {
         return res.status(201).json(user);
     }
     catch (error) {
-        console.log(error);
+        if (error.code === "Username already exists") {
+            return res.status(409).json({ error: "Username already exists" });
+        }
+        console.log("Registration error: " + error);
+        return res.status(500).json({ error: "Internal server error" });
     }
 });
 // login
@@ -26,12 +30,13 @@ router.post('/login', async (req, res) => {
     }
     try {
         const user = await loginUser(username, password);
-        return res.status(201).json(user);
+        return res.status(200).json(user);
     }
     catch (error) {
         if (error.message === "Invalid credentials") {
             return res.status(401).send("Invalid credentials");
         }
-        console.log(error);
+        console.log("Login error: " + error);
+        return res.status(500).json({ error: "Internal server error" });
     }
 });

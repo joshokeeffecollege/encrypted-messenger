@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import {Login} from './components/Login';
 import {Register} from './components/Register';
-// import {Chat} from './components/Chat';
+import {Chat} from './components/Chat';
 import './App.css';
 
 // authenticated user model
@@ -45,18 +45,23 @@ const App: React.FC = () => {
                 {/* If logged in, show placeholder chat area */}
                 {user ? (
                     <div className="bg-slate-800 p-4 rounded-lg space-y-3">
-                        <p className="text-sm text-slate-300">
-                            Logged in as <span className="font-semibold">{user.username}</span>
-                        </p>
-                        <p className="text-sm text-slate-400">
-                            Chat UI will go here.
-                        </p>
-                        <button
-                            onClick={handleLogout}
-                            className="mt-2 text-xs text-slate-300 underline hover:text-slate-100"
-                        >
-                            Log out
-                        </button>
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm text-slate-300">
+                                Logged in as{" "}
+                                <span className="font-semibold">
+                                    {user.username}
+                                </span>
+                            </p>
+                            <button
+                                onClick={handleLogout}
+                                className="text-xs text-slate-300 underline hover:text-slate-100"
+                            >
+                                Log out
+                            </button>
+                        </div>
+
+                        {/* Actual chat UI */}
+                        <Chat user={user}/>
                     </div>
                 ) : (
                     // If not logged in, show either Login or Register.

@@ -1,0 +1,9 @@
+### Send a message from Alice to Bob
+POST http://localhost:5000/inbox/send
+Content-Type: application/json
+
+{
+  "senderId": "cmiw0qlbe0000i0s0r1ldz952",
+  "recipientUsername": "bob",
+  "content": "Hello Bob, it's Alice!"
+}
