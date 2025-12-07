@@ -12,4 +12,22 @@ model User {
   username  String   @unique
   password  String
   createdAt DateTime @default(now())
+
+  messageSent     Message[] @relation("Sender")
+  messageReceived Message[] @relation("Recipient")
+}
+
+model Message {
+  id          String @id @default(cuid())
+  senderId    String
+  recipientId String
+
+  sender    User @relation("Sender", fields: [senderId], references: [id])
+  recipient User @relation("Recipient", fields: [recipientId], references: [id])
+
+  ciphertext String // encrypted payload
+  headerJson String // rachet header and metadata as json string
+
+  deliveredAt DateTime?
+  createdAt   DateTime  @default(now())
 }
