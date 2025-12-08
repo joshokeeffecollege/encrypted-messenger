@@ -3,6 +3,7 @@ import {Login} from './components/Login';
 import {Register} from './components/Register';
 import {Chat} from './components/Chat';
 import './App.css';
+import {Inbox} from "./components/Inbox.tsx";
 
 // authenticated user model
 export interface AuthUser {
@@ -11,74 +12,105 @@ export interface AuthUser {
     createdAt: string | Date;
 }
 
-const App: React.FC = () => {
-    // logged in user, or null
-    const [user, setUser] = useState<AuthUser | null>(null);
+type View = "login" | "register" | "inbox" | "chat";
 
-    // change screen depending on logged in or not
-    const [mode, setMode] = useState<"login" | "register">("login");
+const App: React.FC = () => {
+    const [user, setUser] = useState<AuthUser | null>(null);
+    const [view, setView] = useState<View>("login");
+    const [activePeer, setActivePeer] = useState<string | null>(null);
 
     // upon successful login
     const handleLoginSuccess = (authUser: AuthUser) => {
         setUser(authUser);
+        setView("inbox");
     };
 
     // when register is successful, send user back to login
     const handleRegisterSuccess = (_username: string) => {
-        // Optionally you could store `username` to prefill the login form later.
-        setMode("login");
+        setView("login");
     };
 
     // logout
     const handleLogout = () => {
         setUser(null);
-        setMode("login");
+        setActivePeer(null);
+        setView("login");
     };
 
+    const openChatWith = (peerUsername: string) => {
+        setActivePeer(peerUsername);
+        setView("chat");
+    }
+
+    const backToInbox = () => {
+        setActivePeer(null);
+        setView("inbox");
+    }
+
+    // Not logged in: login/register screens
+    if (!user) {
+        return (
+            <div className="container d-flex align-items-center justify-content-center min-vh-100">
+                <div className="col-12">
+                    <div className="text-center mb-4">
+                        <h2 className="fw-bold">Encrypted Messenger</h2>
+                        <p className="text-muted mb-0">
+                            Sign in or create an account to start chatting.
+                        </p>
+                    </div>
+
+                    {view === "login" ? (
+                        <Login
+                            onLoginSuccess={handleLoginSuccess}
+                            onSwitchToRegister={() => setView("register")}
+                        />
+                    ) : (
+                        <Register
+                            onRegisterSuccess={handleRegisterSuccess}
+                            onSwitchToLogin={() => setView("login")}
+                        />
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // Logged in: inbox or chat
     return (
-        <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center">
-            <div className="w-full max-w-md p-4">
-                <h1 className="text-2xl font-semibold mb-4">
-                    Encrypted Messenger
-                </h1>
-
-                {/* If logged in, show placeholder chat area */}
-                {user ? (
-                    <div className="bg-slate-800 p-4 rounded-lg space-y-3">
-                        <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm text-slate-300">
-                                Logged in as{" "}
-                                <span className="font-semibold">
-                                    {user.username}
-                                </span>
-                            </p>
-                            <button
-                                onClick={handleLogout}
-                                className="text-xs text-slate-300 underline hover:text-slate-100"
-                            >
-                                Log out
-                            </button>
+        <div className="container-fluid py-3">
+            <div className="row justify-content-center">
+                <div className="col-12">
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h4 className="mb-0">Encrypted Messenger</h4>
+                            <small className="text-muted">
+                                Logged in as <strong>{user.username}</strong>
+                            </small>
                         </div>
+                        <button
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={handleLogout}
+                        >
+                            Logout
+                        </button>
+                    </div>
 
-                        {/* Actual chat UI */}
-                        <Chat user={user}/>
+                    <div className="card shadow-sm">
+                        <div className="card-body">
+                            {view === "inbox" && (
+                                <Inbox user={user} onOpenChat={openChatWith}/>
+                            )}
+
+                            {view === "chat" && activePeer && (
+                                <Chat
+                                    user={user}
+                                    peerUsername={activePeer}
+                                    onBackToInbox={backToInbox}
+                                />
+                            )}
+                        </div>
                     </div>
-                ) : (
-                    // If not logged in, show either Login or Register.
-                    <div className="space-y-4">
-                        {mode === "login" ? (
-                            <Login
-                                onLoginSuccess={handleLoginSuccess}
-                                onSwitchToRegister={() => setMode("register")}
-                            />
-                        ) : (
-                            <Register
-                                onRegisterSuccess={handleRegisterSuccess}
-                                onSwitchToLogin={() => setMode("login")}
-                            />
-                        )}
-                    </div>
-                )}
+                </div>
             </div>
         </div>
     );

@@ -21,6 +21,8 @@ export async function sendMessage(
 ): Promise<Message> {
     // look up sender
     const sender = await prisma.user.findUnique({where: {id: senderId}});
+
+    // if sender can't be found
     if (!sender) {
         throw new Error("Sender not found");
     }
@@ -70,7 +72,12 @@ export async function sendMessage(
 // get all messages for user
 export async function getInbox(userId: string): Promise<Message[]> {
     const messages = await prisma.message.findMany({
-        where: {recipientId: userId},
+        where: {
+            OR: [
+                {recipientId: userId},
+                {senderId: userId},
+            ],
+        },
         orderBy: {createdAt: "asc"},
         include: {
             sender: true,

@@ -11,81 +11,54 @@ interface LoginProps {
 export const Login: React.FC<LoginProps> = ({onLoginSuccess, onSwitchToRegister}) => {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-    const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault();
-        setError(null);
-        setLoading(true);
 
         try {
-            const result = await apiPost<AuthUser>("/auth/login", {
+            const user = await apiPost<AuthUser>("/auth/login", {
                 username,
                 password,
             });
 
-            onLoginSuccess(result);
+            onLoginSuccess(user);
         } catch (err) {
-            console.error(err);
-            setError("Login failed. Please check your credentials.");
-        } finally {
-            setLoading(false);
+            alert("Login failed");
         }
     };
 
     return (
-        <div className="space-y-3 bg-slate-800 p-4 rounded-lg">
-            <h2 className="text-lg font-medium">Sign in</h2>
+        <div className={"card shadow-sm"}>
+            <div className="card-body">
+                <h5 className={"card-title mb-3"}>Login</h5>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-sm mb-1" htmlFor="username">
-                        Username
-                    </label>
-                    <input
-                        id="username"
-                        className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        autoComplete="username"
-                    />
-                </div>
+                <form onSubmit={handleSubmit}>
+                    <div className="mb-3">
+                        <label className={"form-label"}>Username</label>
+                        <input
+                            className={"form-control"}
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                        />
+                    </div>
 
-                <div>
-                    <label className="block text-sm mb-1" htmlFor="password">
-                        Password
-                    </label>
-                    <input
-                        id="password"
-                        type="password"
-                        className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        autoComplete="current-password"
-                    />
-                </div>
-
-                {error && <p className="text-sm text-red-400">{error}</p>}
-
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded py-2 text-sm font-medium"
-                >
-                    {loading ? "Signing in..." : "Sign in"}
-                </button>
-            </form>
-
-            <div className="text-xs text-slate-400">
-                Don&apos;t have an account?{" "}
-                <button
-                    type="button"
-                    onClick={onSwitchToRegister}
-                    className="text-blue-400 hover:text-blue-300 underline"
-                >
-                    Create one
-                </button>
+                    <div className="mb-3">
+                        <label className={"form-label"}>Password</label>
+                        <input
+                            type="password"
+                            className={"form-control"}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                    </div>
+                    <button className={"btn btn-primary w-100 mb-2"}>Log in</button>
+                    <button
+                        type="button"
+                        className={"btn btn-link w-100"}
+                        onClick={onSwitchToRegister}>
+                        Need an account? Sign up
+                    </button>
+                </form>
             </div>
         </div>
     );

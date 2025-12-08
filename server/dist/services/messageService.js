@@ -4,6 +4,7 @@ import { prisma } from "../db/prisma.js";
 export async function sendMessage(senderId, recipientUsername, content) {
     // look up sender
     const sender = await prisma.user.findUnique({ where: { id: senderId } });
+    // if sender can't be found
     if (!sender) {
         throw new Error("Sender not found");
     }
@@ -18,7 +19,7 @@ export async function sendMessage(senderId, recipientUsername, content) {
     // later this will hold ratchet and session info
     const header = {
         version: 1,
-        note: "plaintext-only stub; replace with real Signal header later",
+        note: "signal header will go here later",
     };
     const message = await prisma.message.create({
         data: {
@@ -47,7 +48,12 @@ export async function sendMessage(senderId, recipientUsername, content) {
 // get all messages for user
 export async function getInbox(userId) {
     const messages = await prisma.message.findMany({
-        where: { recipientId: userId },
+        where: {
+            OR: [
+                { recipientId: userId },
+                { senderId: userId },
+            ],
+        },
         orderBy: { createdAt: "asc" },
         include: {
             sender: true,

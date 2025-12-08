@@ -1,91 +1,70 @@
-import React, {useState, type FormEvent} from "react";
+import {useState} from "react";
 import {apiPost} from "../api/http";
-import type {AuthUser} from "../App.tsx";
 
 interface RegisterProps {
-    // Inform parent that registration succeeded; we pass back the username.
     onRegisterSuccess: (username: string) => void;
     onSwitchToLogin: () => void;
 }
 
-export const Register: React.FC<RegisterProps> = ({onRegisterSuccess, onSwitchToLogin}) => {
+export const Register: React.FC<RegisterProps> = ({
+                                                      onRegisterSuccess,
+                                                      onSwitchToLogin,
+                                                  }) => {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-    const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = async (e: FormEvent) => {
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        setError(null);
-        setLoading(true);
 
         try {
-            const result = await apiPost<AuthUser>("/auth/register", {
+            await apiPost("/auth/register", {
                 username,
                 password,
             });
 
-            onRegisterSuccess(result.username);
-        } catch (err: any) {
-            console.error(err);
-            setError("Registration failed. Username may already exist.");
-        } finally {
-            setLoading(false);
+            onRegisterSuccess(username);
+        } catch (err) {
+            alert("Registration failed");
         }
-    };
+    }
 
     return (
-        <div className="space-y-3 bg-slate-800 p-4 rounded-lg">
-            <h2 className="text-lg font-medium">Create an account</h2>
+        <div className={"card shadow-sm"}>
+            <div className={"card-body"}>
+                <h5 className={"card-title mb-3"}>Register</h5>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-sm mb-1" htmlFor="reg-username">
-                        Username
-                    </label>
-                    <input
-                        id="reg-username"
-                        className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        autoComplete="username"
-                    />
-                </div>
+                <form onSubmit={handleSubmit}>
+                    <div className="mb-3">
+                        <label className={"form-label"}>Username</label>
+                        <input
+                            className="form-control"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                        />
+                    </div>
 
-                <div>
-                    <label className="block text-sm mb-1" htmlFor="reg-password">
-                        Password
-                    </label>
-                    <input
-                        id="reg-password"
-                        type="password"
-                        className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        autoComplete="new-password"
-                    />
-                </div>
+                    <div className="mb-3">
+                        <label className="form-label">Password</label>
+                        <input
+                            type="password"
+                            className="form-control"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                    </div>
 
-                {error && <p className="text-red-400 text-sm">{error}</p>}
+                    <button className="btn btn-success w-100 mb-2">
+                        Create Account
+                    </button>
 
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 rounded py-2 text-sm font-medium"
-                >
-                    {loading ? "Creating account…" : "Register"}
-                </button>
-            </form>
-
-            <div className="text-xs text-slate-400">
-                Already have an account?{" "}
-                <button
-                    type="button"
-                    onClick={onSwitchToLogin}
-                    className="text-blue-400 hover:text-blue-300 underline"
-                >
-                    Back to login
-                </button>
+                    <button
+                        type="button"
+                        className="btn btn-link w-100"
+                        onClick={onSwitchToLogin}
+                    >
+                        Already have an account? Log in
+                    </button>
+                </form>
             </div>
         </div>
     );
