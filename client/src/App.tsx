@@ -12,7 +12,7 @@ export interface AuthUser {
     createdAt: string | Date;
 }
 
-type View = "login" | "register" | "inbox" | "chat";
+type View = "login" | "register";
 
 const App: React.FC = () => {
     const [user, setUser] = useState<AuthUser | null>(null);
@@ -22,7 +22,7 @@ const App: React.FC = () => {
     // upon successful login
     const handleLoginSuccess = (authUser: AuthUser) => {
         setUser(authUser);
-        setView("inbox");
+        setActivePeer(null);
     };
 
     // when register is successful, send user back to login
@@ -39,12 +39,10 @@ const App: React.FC = () => {
 
     const openChatWith = (peerUsername: string) => {
         setActivePeer(peerUsername);
-        setView("chat");
     }
 
     const backToInbox = () => {
         setActivePeer(null);
-        setView("inbox");
     }
 
     // Not logged in: login/register screens
@@ -77,10 +75,11 @@ const App: React.FC = () => {
 
     // Logged in: inbox or chat
     return (
-        <div className="container-fluid py-3">
+        <div className="container-fluid py-3 min-vh-100" >
             <div className="row justify-content-center">
-                <div className="col-12">
-                    <div className="d-flex justify-content-between align-items-center mb-3">
+                <div className="col-12" >
+                    {/* Top bar */}
+                    <div className="d-flex justify-content-between align-items-center mb-3" >
                         <div>
                             <h4 className="mb-0">Encrypted Messenger</h4>
                             <small className="text-muted">
@@ -88,26 +87,56 @@ const App: React.FC = () => {
                             </small>
                         </div>
                         <button
-                            className="btn btn-sm btn-outline-secondary"
+                            className="btn btn-sm btn-outline-danger"
                             onClick={handleLogout}
                         >
                             Logout
                         </button>
                     </div>
 
-                    <div className="card shadow-sm">
-                        <div className="card-body">
-                            {view === "inbox" && (
+                    {/* Main card */}
+                    <div className="card shadow-sm" style={{minHeight: "70vh"}}>
+                        <div
+                            className="
+                                card-body
+                                d-flex
+                                flex-column flex-md-row
+                                gap-3
+                            "
+                        >
+                            {/* LEFT: Inbox sidebar */}
+                            <div
+                                className="
+                                    flex-shrink-0
+                                    border-end
+                                    pe-md-3
+                                "
+                                style={{width: "100%", maxWidth: 320}}
+                            >
                                 <Inbox user={user} onOpenChat={openChatWith}/>
-                            )}
+                            </div>
 
-                            {view === "chat" && activePeer && (
-                                <Chat
-                                    user={user}
-                                    peerUsername={activePeer}
-                                    onBackToInbox={backToInbox}
-                                />
-                            )}
+                            {/* RIGHT: Chat panel */}
+                            <div className="flex-grow-1 ps-md-1">
+                                {activePeer ? (
+                                    <Chat
+                                        user={user}
+                                        peerUsername={activePeer}
+                                        onBackToInbox={backToInbox}
+                                    />
+                                ) : (
+                                    <div
+                                        className="d-flex flex-column justify-content-center align-items-center h-100 text-muted">
+                                        <p className="mb-1">
+                                            Select a conversation on the left,
+                                            or start a new chat.
+                                        </p>
+                                        <p className="small mb-0">
+                                            Your messages will appear here.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

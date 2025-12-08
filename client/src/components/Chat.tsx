@@ -27,8 +27,8 @@ export const Chat: React.FC<ChatProps> = ({user, peerUsername, onBackToInbox}) =
     // load inbox every 3 seconds
     useEffect(() => {
         void loadMessages();
-        // const interval = setInterval(loadMessages, 3000);
-        // return () => clearInterval(interval);
+        const interval = setInterval(loadMessages, 3000);
+        return () => clearInterval(interval);
     }, [peerUsername, user.id]);
 
     async function loadMessages() {
@@ -78,7 +78,7 @@ export const Chat: React.FC<ChatProps> = ({user, peerUsername, onBackToInbox}) =
                 <div>
                     <button
                         type="button"
-                        className="btn btn-link p-0 me-2"
+                        className="btn btn-link p-0 me-2 d-md-none"
                         onClick={onBackToInbox}
                     >
                         &larr; Inbox

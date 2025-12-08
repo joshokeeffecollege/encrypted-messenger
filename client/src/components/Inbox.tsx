@@ -46,7 +46,6 @@ export const Inbox: React.FC<InboxProps> = ({user, onOpenChat}) => {
                     ? msg.recipientUsername
                     : msg.senderUsername;
 
-                // ✨ ignore any accidental "self" conversations
                 if (peerUsername === user.username) {
                     continue;
                 }
@@ -198,7 +197,7 @@ export const Inbox: React.FC<InboxProps> = ({user, onOpenChat}) => {
                                                 {formatTime(conv.lastCreatedAt)}
                                             </small>
                                         </div>
-                                        <div className="text-muted small text-truncate">
+                                        <div className="text-muted small text-truncate align-right">
                                             {conv.lastMessage}
                                         </div>
                                     </div>
