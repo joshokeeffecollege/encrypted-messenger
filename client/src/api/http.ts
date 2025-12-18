@@ -1,37 +1,37 @@
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5001";
 
 // Generic GET helper
 export async function apiGet<T = any>(path: string): Promise<T> {
-    const response = await fetch(`${API_BASE}${path}`, {
-        method: "GET",
-        credentials: "include",
-    });
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "GET",
+    credentials: "include",
+  });
 
-    if (!response.ok) {
-        throw new Error(`HTTP GET error ${response.status}`);
-    }
+  if (!response.ok) {
+    throw new Error(`HTTP GET error ${response.status}`);
+  }
 
-    return response.json();
+  return response.json();
 }
 
 // Generic POST helper
 export async function apiPost<T = any>(path: string, data?: any): Promise<T> {
-    const response = await fetch(`${API_BASE}${path}`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        credentials: "include",
-        body: JSON.stringify(data ?? {}),
-    });
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data ?? {}),
+  });
 
-    if (!response.ok) {
-        throw new Error(`HTTP POST error ${response.status}`);
-    }
+  if (!response.ok) {
+    throw new Error(`HTTP POST error ${response.status}`);
+  }
 
-    return response.json();
+  return response.json();
 }
 
 // Optional object-based API
 export const api = {
-    get: apiGet,
-    post: apiPost,
+  get: apiGet,
+  post: apiPost,
 };
