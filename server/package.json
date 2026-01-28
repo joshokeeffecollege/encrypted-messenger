@@ -16,13 +16,17 @@
   "dependencies": {
     "@prisma/client": "^6.19.0",
     "argon2": "^0.44.0",
+    "connect-sqlite3": "^0.9.16",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "express-session": "^1.19.0"
   },
   "devDependencies": {
+    "@types/connect-sqlite3": "^0.9.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
+    "@types/express-session": "^1.18.2",
     "@types/node": "^24.10.1",
     "nodemon": "^3.1.11",
     "prisma": "^6.19.0",

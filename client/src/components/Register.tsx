@@ -12,9 +12,11 @@ export const Register: React.FC<RegisterProps> = ({
 }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<String | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null); // reset errors
 
     try {
       await apiPost("/auth/register", {
@@ -24,7 +26,7 @@ export const Register: React.FC<RegisterProps> = ({
 
       onRegisterSuccess(username);
     } catch (err) {
-      alert("Registration failed");
+      setError("Registration failed. Please try again.");
     }
   }
 
@@ -32,6 +34,9 @@ export const Register: React.FC<RegisterProps> = ({
     <div className={"card shadow-sm col-12 col-md-6 col-lg-4 mx-auto"}>
       <div className={"card-body"}>
         <h5 className={"card-title mb-3"}>Register</h5>
+
+        {/* Error message box */}
+        {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="mb-3">

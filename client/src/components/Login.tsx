@@ -14,9 +14,11 @@ export const Login: React.FC<LoginProps> = ({
 }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<String | null>(null);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    setError(null); // clear previous error
 
     try {
       const user = await apiPost<AuthUser>("/auth/login", {
@@ -26,7 +28,7 @@ export const Login: React.FC<LoginProps> = ({
 
       onLoginSuccess(user);
     } catch (err) {
-      alert("Login failed");
+      setError("Invalid credentials. Please try again.");
     }
   };
 
@@ -34,6 +36,9 @@ export const Login: React.FC<LoginProps> = ({
     <div className={"card shadow-sm col-12 col-md-6 col-lg-4 mx-auto"}>
       <div className="card-body">
         <h5 className={"card-title mb-3"}>Login</h5>
+
+        {/* Error message box */}
+        {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="mb-3">

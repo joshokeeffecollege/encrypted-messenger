@@ -17,6 +17,7 @@ router.post("/register", async (req, res) => {
 
   try {
     const user = await registerUser(username, password);
+    req.session.userId = user.id;
     return res.status(201).json(user);
   } catch (error: any) {
     if (error.code === "Username already exists") {
@@ -40,6 +41,7 @@ router.post("/login", async (req, res) => {
 
   try {
     const user = await loginUser(username, password);
+    req.session.userId = user.id;
     return res.status(200).json(user);
   } catch (error: any) {
     if (error.message === "Invalid credentials") {
@@ -47,5 +49,52 @@ router.post("/login", async (req, res) => {
     }
     console.log("Login error: " + error);
     return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// logout
+router.post("/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({
+        error: "Could not log out",
+      });
+    }
+    res.clearCookie("connect.sid");
+    return res.status(200).json({ message: "Logged out successfully" });
+  });
+});
+
+// check if user is authenticated
+router.get("/me", async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({
+      error: "Not autenticated",
+    });
+  }
+
+  try {
+    // get yser from database
+    const { prisma } = await import("../db/prisma.js");
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      id: user.id,
+      username: user.username,
+      createdAt: user.createdAt,
+    });
+  } catch (error) {
+    console.log("Get user error: " + error);
+    return res.status(500).json({
+      error: "internal server error",
+    });
   }
 });

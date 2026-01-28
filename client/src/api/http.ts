@@ -30,7 +30,6 @@ export async function apiPost<T = any>(path: string, data?: any): Promise<T> {
   return response.json();
 }
 
-// Optional object-based API
 export const api = {
   get: apiGet,
   post: apiPost,
