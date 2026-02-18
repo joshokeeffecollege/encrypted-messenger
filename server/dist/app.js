@@ -2,12 +2,12 @@ import express from "express";
 import session from "express-session";
 import cors from "cors";
 import dotenv from "dotenv";
-import SQLiteStore from "connect-sqlite3";
+import FileStoreFactory from "session-file-store";
 import { router } from "./routes/auth.js";
 import { inboxRouter } from "./routes/inbox.js";
 dotenv.config();
 const app = express();
-const SessionStore = SQLiteStore(session);
+const FileStore = FileStoreFactory(session);
 app.use(express.json());
 app.use(cors({
     origin: "http://localhost:5173",
@@ -15,9 +15,10 @@ app.use(cors({
 }));
 // Session
 app.use(session({
-    store: new SessionStore({
-        db: "sessions.db",
-        dir: "./prisma", // store sessions with database
+    store: new FileStore({
+        path: "./prisma/sessions",
+        ttl: 7 * 24 * 60 * 60, // 7 days in seconds
+        logFn: () => { },
     }),
     secret: process.env.SESSION_SECRET || "dev-secret",
     resave: false,
