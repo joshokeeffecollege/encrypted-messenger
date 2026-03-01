@@ -3,3 +3,9 @@ node_modules
 .env
 
 /src/generated/prisma
+
+# Database files (SQLite)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

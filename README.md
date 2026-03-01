@@ -1,22 +1,37 @@
+## Prerequisites
 
-# Setup
+- Node.js & npm
 
-1) Install server dependencies and set up the database
+## Install & Run
+
+**1. Server**
+
 ```bash
 cd server
 npm install
-npx prisma db push   # create SQLite schema
+npx prisma db push
 npm run build
-PORT=5001 npm start  # or omit PORT to use 5000
+npm start
 ```
 
-2) Install client dependencies and run Vite
+**2. Client**
+
 ```bash
 cd client
 npm install
 npm run dev
 ```
 
-3) Open the app
-- API: `http://localhost:5001` (or `:5000` if you didn’t override PORT)
-- UI:  `http://localhost:5173`
+**3. Open the app**
+
+- UI: `http://localhost:5173`
+- API: `http://localhost:5001`
+
+## Environment Variables
+
+Create a `server/.env` file to override defaults:
+
+```env
+PORT=5001
+SESSION_SECRET=change-me-in-production
+```
