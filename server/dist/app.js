@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import FileStoreFactory from "session-file-store";
 import { router } from "./routes/auth.js";
 import { inboxRouter } from "./routes/inbox.js";
+import { keysRouter } from "./routes/keys.js";
 dotenv.config();
 const app = express();
 const FileStore = FileStoreFactory(session);
@@ -39,5 +40,7 @@ app.get("/", (req, res) => {
 app.use("/auth", router);
 // messaging routes
 app.use("/inbox", inboxRouter);
+// key management routes
+app.use("/keys", keysRouter);
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`Server running on ${PORT}`));

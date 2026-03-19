@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
 }
 
 model User {
@@ -12,6 +11,8 @@ model User {
   username  String   @unique
   password  String
   createdAt DateTime @default(now())
+
+  keyBundle UserKeyBundle?
 
   messageSent     Message[] @relation("Sender")
   messageReceived Message[] @relation("Recipient")
@@ -25,9 +26,24 @@ model Message {
   sender    User @relation("Sender", fields: [senderId], references: [id])
   recipient User @relation("Recipient", fields: [recipientId], references: [id])
 
-  ciphertext String // encrypted payload
-  headerJson String // rachet header and metadata as json string
+  ciphertext String
+  headerJson String
 
   deliveredAt DateTime?
   createdAt   DateTime  @default(now())
+}
+
+model UserKeyBundle {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  registrationId        Int
+  identityKey           String
+  signedPreKeyId        Int
+  signedPreKeyPublic    String
+  signedPreKeySignature String
+  preKeysJson           String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

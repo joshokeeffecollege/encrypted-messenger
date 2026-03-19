@@ -4,6 +4,8 @@ import { Register } from "./components/Register";
 import { Chat } from "./components/Chat";
 import { Inbox } from "./components/Inbox.tsx";
 import { api } from "./api/http.ts";
+import { generateAndStoreKeys, hasKeys } from "./encryptedClient/keyManager.ts";
+import { uploadKeyBundle } from "./encryptedClient/keyApi.ts";
 import "./App.css";
 
 // authenticated user model
@@ -21,15 +23,25 @@ const App: React.FC = () => {
   const [activePeer, setActivePeer] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // check if the user is logged in
+  async function ensureUserKeys(authUser: AuthUser) {
+    // Generate keys once per user/device.
+    if (hasKeys(authUser.id)) {
+      return;
+    }
+
+    // Create local private keys and upload only the public bundle.
+    const publicBundle = await generateAndStoreKeys(authUser.id);
+    await uploadKeyBundle(publicBundle);
+  }
+
   useEffect(() => {
     api
       .get<AuthUser>("/auth/me")
-      .then((AuthUser) => {
-        setUser(AuthUser);
+      .then(async (authUser) => {
+        setUser(authUser);
+        await ensureUserKeys(authUser);
       })
       .catch(() => {
-        // if not logged in, stay on login page
         setUser(null);
       })
       .finally(() => {
@@ -37,28 +49,26 @@ const App: React.FC = () => {
       });
   }, []);
 
-  // upon successful login
-  const handleLoginSuccess = (authUser: AuthUser) => {
+  const handleLoginSuccess = async (authUser: AuthUser) => {
     setUser(authUser);
     setActivePeer(null);
+    await ensureUserKeys(authUser);
   };
 
-  // when register is successful, send user back to login
   const handleRegisterSuccess = (_username: string) => {
     setView("login");
   };
 
-  // logout
   const handleLogout = async () => {
-	try {
-		await api.post("/auth/logout");
-	} catch (error) {
-		console.log("Logout error: ", error);
-	} finally {
-		setUser(null);
-		setActivePeer(null);
-		setView("login");
-	}
+    try {
+      await api.post("/auth/logout");
+    } catch (error) {
+      console.log("Logout error: ", error);
+    } finally {
+      setUser(null);
+      setActivePeer(null);
+      setView("login");
+    }
   };
 
   const openChatWith = (peerUsername: string) => {
@@ -69,7 +79,6 @@ const App: React.FC = () => {
     setActivePeer(null);
   };
 
-  // Show loading screen while checking sessionn
   if (loading) {
     return (
       <div className="container d-flex align-items-center justify-content-center min-vh-100">
@@ -85,7 +94,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Not logged in: login/register screens
   if (!user) {
     return (
       <div className="container d-flex align-items-center justify-content-center min-vh-100">
@@ -113,12 +121,10 @@ const App: React.FC = () => {
     );
   }
 
-  // Logged in: inbox or chat
   return (
     <div className="container-fluid py-3 min-vh-100">
       <div className="row justify-content-center">
         <div className="col-12">
-          {/* Top bar */}
           <div className="d-flex justify-content-between align-items-center mb-3">
             <div>
               <h4 className="mb-0">Encrypted Messenger</h4>
@@ -134,29 +140,15 @@ const App: React.FC = () => {
             </button>
           </div>
 
-          {/* Main card */}
           <div className="card shadow-sm" style={{ minHeight: "70vh" }}>
-            <div
-              className="
-                                card-body
-                                d-flex
-                                flex-column flex-md-row
-                                gap-3
-                            "
-            >
-              {/* LEFT: Inbox sidebar */}
+            <div className="card-body d-flex flex-column flex-md-row gap-3">
               <div
-                className="
-                                    flex-shrink-0
-                                    border-end
-                                    pe-md-3
-                                "
+                className="flex-shrink-0 border-end pe-md-3"
                 style={{ width: "100%", maxWidth: 320 }}
               >
                 <Inbox user={user} onOpenChat={openChatWith} />
               </div>
 
-              {/* RIGHT: Chat panel */}
               <div className="flex-grow-1 ps-md-1">
                 {activePeer ? (
                   <Chat
