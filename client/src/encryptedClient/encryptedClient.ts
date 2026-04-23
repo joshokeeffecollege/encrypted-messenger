@@ -1,18 +1,18 @@
-// import * as libsignal from "@signalapp/libsignal-client";
+import { apiGet, apiPost } from "../api/http";
+import type { PublicKeyBundle } from "./keyManager";
 
-export interface Signal {
-    // public key to be pushed to server/users
-    publicKey: Uint8Array;
-
-    // private key to be kept locally
-    privateKey: Uint8Array;
+export interface PublicKeyBundleResponse extends PublicKeyBundle {
+  username: string;
 }
 
-export async function generateIdentity(): Promise<Signal> {
-    console.log("Generating Identity...");
+export async function uploadKeyBundle(bundle: PublicKeyBundle): Promise<void> {
+  await apiPost("/keys/bundle", bundle);
+}
 
-    return {
-        publicKey: new Uint8Array(),
-        privateKey: new Uint8Array(),
-    }
+export async function fetchKeyBundle(
+  username: string,
+): Promise<PublicKeyBundleResponse> {
+  return apiGet<PublicKeyBundleResponse>(
+    `/keys/${encodeURIComponent(username)}`,
+  );
 }

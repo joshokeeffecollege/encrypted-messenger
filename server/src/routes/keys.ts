@@ -8,18 +8,44 @@ import {
 export const keysRouter = Router();
 
 // Validate the shape of the uploaded public bundle.
-function isValidKeyBundleInput(input: any): input is PublicKeyBundleInput {
+function isValidKeyBundleInput(input: unknown): input is PublicKeyBundleInput {
+  if (!input || typeof input !== "object") {
+    return false;
+  }
+
+  const bundle = input as {
+    registrationId?: unknown;
+    identityKey?: unknown;
+    signedPreKey?: {
+      id?: unknown;
+      publicKey?: unknown;
+      signature?: unknown;
+    };
+    kyberPreKey?: {
+      id?: unknown;
+      publicKey?: unknown;
+      signature?: unknown;
+    };
+    preKeys?: Array<{
+      id?: unknown;
+      publicKey?: unknown;
+    }>;
+  };
+
   return (
-    input &&
-    typeof input.registrationId === "number" &&
-    typeof input.identityKey === "string" &&
-    input.signedPreKey &&
-    typeof input.signedPreKey.id === "number" &&
-    typeof input.signedPreKey.publicKey === "string" &&
-    typeof input.signedPreKey.signature === "string" &&
-    Array.isArray(input.preKeys) &&
-    input.preKeys.every(
-      (preKey: any) =>
+    typeof bundle.registrationId === "number" &&
+    typeof bundle.identityKey === "string" &&
+    !!bundle.signedPreKey &&
+    typeof bundle.signedPreKey.id === "number" &&
+    typeof bundle.signedPreKey.publicKey === "string" &&
+    typeof bundle.signedPreKey.signature === "string" &&
+    !!bundle.kyberPreKey &&
+    typeof bundle.kyberPreKey.id === "number" &&
+    typeof bundle.kyberPreKey.publicKey === "string" &&
+    typeof bundle.kyberPreKey.signature === "string" &&
+    Array.isArray(bundle.preKeys) &&
+    bundle.preKeys.every(
+      (preKey) =>
         typeof preKey.id === "number" && typeof preKey.publicKey === "string",
     )
   );

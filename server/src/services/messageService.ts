@@ -1,54 +1,84 @@
 import { prisma } from "../db/prisma.js";
 
-export interface Message {
+export type EncryptedMessageType = "prekey" | "signal";
+
+export interface EncryptedMessageHeader {
+  version: 1;
+  senderRegistrationId?: number;
+  recipientRegistrationId?: number;
+}
+
+export interface SendEncryptedMessageInput {
+  type: EncryptedMessageType;
+  ciphertext: string;
+  header: EncryptedMessageHeader;
+}
+
+export interface EncryptedMessage {
   id: string;
   senderId: string;
   recipientId: string;
   senderUsername: string;
   recipientUsername: string;
-  content: string; // currently stored in ciphertext field
-  header: unknown;
+  type: EncryptedMessageType;
+  ciphertext: string;
+  header: EncryptedMessageHeader;
   createdAt: Date;
   deliveredAt: Date | null;
 }
 
-// messages sent between users, addressed by recipient username
-// does not yet contain encryption
-export async function sendMessage(
+interface StoredMessageHeader extends EncryptedMessageHeader {
+  type: EncryptedMessageType;
+}
+
+function parseStoredHeader(headerJson: string): StoredMessageHeader {
+  const parsed = JSON.parse(headerJson) as Partial<StoredMessageHeader>;
+
+  if (
+    parsed.version !== 1 ||
+    (parsed.type !== "prekey" && parsed.type !== "signal")
+  ) {
+    throw new Error("Invalid message header");
+  }
+
+  return {
+    type: parsed.type,
+    version: 1,
+    senderRegistrationId: parsed.senderRegistrationId,
+    recipientRegistrationId: parsed.recipientRegistrationId,
+  };
+}
+
+export async function sendEncryptedMessage(
   senderId: string,
   recipientUsername: string,
-  content: string
-): Promise<Message> {
-  // look up sender
+  input: SendEncryptedMessageInput,
+): Promise<EncryptedMessage> {
   const sender = await prisma.user.findUnique({ where: { id: senderId } });
 
-  // if sender can't be found
   if (!sender) {
     throw new Error("Sender not found");
   }
 
-  // look up recipient by username
   const recipient = await prisma.user.findUnique({
     where: { username: recipientUsername },
   });
 
-  // if recipient isn't found
   if (!recipient) {
     throw new Error("Recipient not found");
   }
 
-  // later this will hold ratchet and session info
-  const header = {
-    version: 1,
-    note: "signal header will go here later",
-  };
+  const headerJson = JSON.stringify({
+    type: input.type,
+    ...input.header,
+  });
 
   const message = await prisma.message.create({
     data: {
       senderId: sender.id,
       recipientId: recipient.id,
-      ciphertext: content, // plaintext for now
-      headerJson: JSON.stringify(header),
+      ciphertext: input.ciphertext,
+      headerJson,
     },
     include: {
       sender: true,
@@ -56,21 +86,27 @@ export async function sendMessage(
     },
   });
 
+  const header = parseStoredHeader(message.headerJson);
+
   return {
     id: message.id,
     senderId: message.senderId,
     recipientId: message.recipientId,
     senderUsername: message.sender.username,
     recipientUsername: message.recipient.username,
-    content: message.ciphertext,
-    header: JSON.parse(message.headerJson),
+    type: header.type,
+    ciphertext: message.ciphertext,
+    header: {
+      version: header.version,
+      senderRegistrationId: header.senderRegistrationId,
+      recipientRegistrationId: header.recipientRegistrationId,
+    },
     createdAt: message.createdAt,
     deliveredAt: message.deliveredAt,
   };
 }
 
-// get all messages for user
-export async function getInbox(userId: string): Promise<Message[]> {
+export async function getInbox(userId: string): Promise<EncryptedMessage[]> {
   const messages = await prisma.message.findMany({
     where: {
       OR: [{ recipientId: userId }, { senderId: userId }],
@@ -82,15 +118,24 @@ export async function getInbox(userId: string): Promise<Message[]> {
     },
   });
 
-  return messages.map((m) => ({
-    id: m.id,
-    senderId: m.senderId,
-    recipientId: m.recipientId,
-    senderUsername: m.sender.username,
-    recipientUsername: m.recipient.username,
-    content: m.ciphertext,
-    header: JSON.parse(m.headerJson),
-    createdAt: m.createdAt,
-    deliveredAt: m.deliveredAt,
-  }));
+  return messages.map((message) => {
+    const header = parseStoredHeader(message.headerJson);
+
+    return {
+      id: message.id,
+      senderId: message.senderId,
+      recipientId: message.recipientId,
+      senderUsername: message.sender.username,
+      recipientUsername: message.recipient.username,
+      type: header.type,
+      ciphertext: message.ciphertext,
+      header: {
+        version: header.version,
+        senderRegistrationId: header.senderRegistrationId,
+        recipientRegistrationId: header.recipientRegistrationId,
+      },
+      createdAt: message.createdAt,
+      deliveredAt: message.deliveredAt,
+    };
+  });
 }

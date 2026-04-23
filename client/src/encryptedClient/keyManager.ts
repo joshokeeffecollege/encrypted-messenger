@@ -1,137 +1,153 @@
 import {
-  PrivateKey,
-  SignedPreKeyRecord,
+  IdentityKeyPair,
+  KEMKeyPair,
+  KyberPreKeyRecord,
   PreKeyRecord,
+  SignedPreKeyRecord,
 } from "@signalapp/libsignal-client";
 
 // Store keys in localStorage
 const STORAGE_PREFIX = "signal";
 
-// Convert keys to base64 for storage
 function keyName(userId: string, name: string) {
   return `${STORAGE_PREFIX}:${userId}:${name}`;
 }
 
-// Convert Uint8Array to base64
 function toBase64(bytes: Uint8Array): string {
   let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
   return btoa(binary);
 }
 
-// Convert base64 to Uint8Array
 export function fromBase64(b64: string): Uint8Array {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 }
 
-// Public key bundle returned to server
 export interface PublicKeyBundle {
   registrationId: number;
-
-  // Identity key (long-term)
   identityKey: string;
-
-  // Signed pre-key (medium-term)
   signedPreKey: {
     id: number;
     publicKey: string;
     signature: string;
   };
-
-  // Pre-keys (one-time)
+  kyberPreKey: {
+    id: number;
+    publicKey: string;
+    signature: string;
+  };
   preKeys: {
     id: number;
     publicKey: string;
   }[];
 }
 
-// Checks if keys exist for a user
 export function hasKeys(userId: string): boolean {
-  return !!localStorage.getItem(keyName(userId, "identityPrivate"));
+  return Boolean(localStorage.getItem(keyName(userId, "identityPrivate")));
 }
 
-// Generate and store keys for a user
+export function getRegistrationId(userId: string): number {
+  const value = localStorage.getItem(keyName(userId, "registrationId"));
+
+  if (!value) {
+    throw new Error("Missing registration ID for user");
+  }
+
+  return Number(value);
+}
+
 export async function generateAndStoreKeys(
   userId: string,
 ): Promise<PublicKeyBundle> {
-  // Prevent regenerating keys if they already exist
   if (hasKeys(userId)) {
     throw new Error("Keys already exist for this user");
   }
 
-  // Generate identity keys
-  const identityPriv = PrivateKey.generate();
-  const identityPub = identityPriv.getPublicKey();
-
-  // Generate registration ID
+  const identity = IdentityKeyPair.generate();
   const registrationId = Math.floor(Math.random() * 16383) + 1;
 
-  // Store private keys in localStorage
   localStorage.setItem(
     keyName(userId, "identityPrivate"),
-    toBase64(identityPriv.serialize()),
+    toBase64(identity.privateKey.serialize()),
   );
-
+  localStorage.setItem(
+    keyName(userId, "identityPublic"),
+    toBase64(identity.publicKey.serialize()),
+  );
   localStorage.setItem(
     keyName(userId, "registrationId"),
     registrationId.toString(),
   );
 
-  // Create signed prekeys
   const signedPreKeyId = 1;
-  const signedPreKeyPriv = PrivateKey.generate();
-  const signedPreKeyPub = signedPreKeyPriv.getPublicKey();
-
-  const signature = identityPriv.sign(signedPreKeyPub.serialize());
+  const signedPreKeyPrivate = IdentityKeyPair.generate().privateKey;
+  const signedPreKeyPublic = signedPreKeyPrivate.getPublicKey();
+  const signedPreKeySignature = identity.privateKey.sign(
+    signedPreKeyPublic.serialize(),
+  );
 
   const signedPreKeyRecord = SignedPreKeyRecord.new(
     signedPreKeyId,
     Date.now(),
-    signedPreKeyPub,
-    signedPreKeyPriv,
-    signature,
+    signedPreKeyPublic,
+    signedPreKeyPrivate,
+    signedPreKeySignature,
   );
 
-  // Store signed prekey private record
   localStorage.setItem(
     keyName(userId, "signedPreKey"),
     toBase64(signedPreKeyRecord.serialize()),
   );
 
-  // Create one-time prekeys
-  const preKeys: {
-    id: number;
-    publicKey: string;
-  }[] = [];
+  const kyberPreKeyId = 1;
+  const kyberKeyPair = KEMKeyPair.generate();
+  const kyberPublic = kyberKeyPair.getPublicKey();
+  const kyberSignature = identity.privateKey.sign(kyberPublic.serialize());
 
-  for (let i = 1; i < 10; i++) {
-    const preKeyPriv = PrivateKey.generate();
-    const preKeyPub = preKeyPriv.getPublicKey();
+  const kyberPreKeyRecord = KyberPreKeyRecord.new(
+    kyberPreKeyId,
+    Date.now(),
+    kyberKeyPair,
+    kyberSignature,
+  );
 
-    // Create libsignal PreKeyRecord for storage
-    const record = PreKeyRecord.new(i, preKeyPub, preKeyPriv);
+  localStorage.setItem(
+    keyName(userId, "kyberPreKey"),
+    toBase64(kyberPreKeyRecord.serialize()),
+  );
 
-    // Store the prekey record in localStorage
+  const preKeys: Array<{ id: number; publicKey: string }> = [];
+
+  for (let id = 1; id <= 10; id += 1) {
+    const preKeyPrivate = IdentityKeyPair.generate().privateKey;
+    const preKeyPublic = preKeyPrivate.getPublicKey();
+    const record = PreKeyRecord.new(id, preKeyPublic, preKeyPrivate);
+
     localStorage.setItem(
-      keyName(userId, `preKey:${i}`),
+      keyName(userId, `preKey:${id}`),
       toBase64(record.serialize()),
     );
 
-    // Add public part to the bundle
     preKeys.push({
-      id: i,
-      publicKey: toBase64(preKeyPub.serialize()),
+      id,
+      publicKey: toBase64(preKeyPublic.serialize()),
     });
   }
 
-  // Return public key bundle to send to server. Never private keys
   return {
     registrationId,
-    identityKey: toBase64(identityPub.serialize()),
+    identityKey: toBase64(identity.publicKey.serialize()),
     signedPreKey: {
       id: signedPreKeyId,
-      publicKey: toBase64(signedPreKeyPub.serialize()),
-      signature: toBase64(signature),
+      publicKey: toBase64(signedPreKeyPublic.serialize()),
+      signature: toBase64(signedPreKeySignature),
+    },
+    kyberPreKey: {
+      id: kyberPreKeyId,
+      publicKey: toBase64(kyberPublic.serialize()),
+      signature: toBase64(kyberSignature),
     },
     preKeys,
   };

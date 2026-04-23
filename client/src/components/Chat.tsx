@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { api, apiGet } from "../api/http";
 import type { AuthUser } from "../App.tsx";
+import { encryptForPeer } from "../encryptedClient/sessionManager.ts";
+
+type EncryptedMessageType = "prekey" | "signal";
 
 interface Message {
   id: string;
@@ -8,7 +11,13 @@ interface Message {
   senderUsername: string;
   recipientId: string;
   recipientUsername: string;
-  content: string;
+  type: EncryptedMessageType;
+  ciphertext: string;
+  header: {
+    version: 1;
+    senderRegistrationId?: number;
+    recipientRegistrationId?: number;
+  };
   createdAt: string;
 }
 
@@ -23,28 +32,29 @@ export const Chat: React.FC<ChatProps> = ({
   peerUsername,
   onBackToInbox,
 }) => {
-  // username of person to send message to
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
 
-  // load inbox every 3 seconds
   useEffect(() => {
     void loadMessages();
-    const interval = setInterval(loadMessages, 3000);
+    const interval = setInterval(() => {
+      void loadMessages();
+    }, 3000);
+
     return () => clearInterval(interval);
   }, [peerUsername, user.id]);
 
   async function loadMessages() {
     try {
-      const inbox = await apiGet<Message[]>(`/inbox?userId=${user.id}`);
+      const inbox = await apiGet<Message[]>("/inbox");
 
       const filtered = inbox.filter(
-        (m) =>
-          (m.senderUsername === user.username &&
-            m.recipientUsername === peerUsername) ||
-          (m.senderUsername === peerUsername &&
-            m.recipientUsername === user.username)
+        (message) =>
+          (message.senderUsername === user.username &&
+            message.recipientUsername === peerUsername) ||
+          (message.senderUsername === peerUsername &&
+            message.recipientUsername === user.username),
       );
 
       setMessages(filtered);
@@ -55,21 +65,34 @@ export const Chat: React.FC<ChatProps> = ({
 
   async function sendMessage() {
     const text = input.trim();
-    if (!text) return;
+
+    if (!text || sending) {
+      return;
+    }
+
+    setSending(true);
 
     try {
-      const msg = await api.post<Message>("/inbox/send", {
-        senderId: user.id,
-        recipientUsername: peerUsername,
-        content: input,
+      const encrypted = await encryptForPeer(user.id, peerUsername, text);
+
+      const message = await api.post<Message>("/inbox/send", {
+        recipientUsername: encrypted.recipientUsername,
+        type: encrypted.type,
+        ciphertext: encrypted.ciphertext,
+        header: encrypted.header,
       });
 
-      // update
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => [...prev, message]);
       setInput("");
     } catch (error) {
-      console.error("Error sending message: " + error);
-      alert("Error sending message");
+      console.error("Error sending message:", error);
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to send message right now.";
+
+      alert(message);
     } finally {
       setSending(false);
     }
@@ -77,7 +100,6 @@ export const Chat: React.FC<ChatProps> = ({
 
   return (
     <div>
-      {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
           <button
@@ -91,7 +113,6 @@ export const Chat: React.FC<ChatProps> = ({
         </div>
       </div>
 
-      {/* Messages */}
       <div
         className="border rounded p-3 mb-3 bg-light"
         style={{ height: "60vh", overflowY: "auto" }}
@@ -100,11 +121,12 @@ export const Chat: React.FC<ChatProps> = ({
           <p className="text-muted text-center">No messages yet. Say hi!</p>
         )}
 
-        {messages.map((msg) => {
-          const isMe = msg.senderUsername === user.username;
+        {messages.map((message) => {
+          const isMe = message.senderUsername === user.username;
+
           return (
             <div
-              key={msg.id}
+              key={message.id}
               className={`d-flex mb-2 ${
                 isMe ? "justify-content-end" : "justify-content-start"
               }`}
@@ -117,12 +139,14 @@ export const Chat: React.FC<ChatProps> = ({
               >
                 {!isMe && (
                   <div className="small text-muted mb-1">
-                    {msg.senderUsername}
+                    {message.senderUsername}
                   </div>
                 )}
-                <div>{msg.content}</div>
+                <div className="text-break font-monospace small">
+                  {message.ciphertext}
+                </div>
                 <div className="small mt-1 text-end">
-                  {new Date(msg.createdAt).toLocaleTimeString()}
+                  {new Date(message.createdAt).toLocaleTimeString()}
                 </div>
               </div>
             </div>
@@ -130,7 +154,6 @@ export const Chat: React.FC<ChatProps> = ({
         })}
       </div>
 
-      {/* Input */}
       <div className="input-group">
         <input
           type="text"
@@ -138,12 +161,16 @@ export const Chat: React.FC<ChatProps> = ({
           placeholder={`Message @${peerUsername}`}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              void sendMessage();
+            }
+          }}
         />
         <button
           className="btn btn-primary"
           type="button"
-          onClick={sendMessage}
+          onClick={() => void sendMessage()}
           disabled={sending}
         >
           Send

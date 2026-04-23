@@ -1,6 +1,5 @@
 import { prisma } from "../db/prisma.js";
 export async function saveUserKeyBundle(userId, keyBundle) {
-    // The server stores only public keys.
     await prisma.userKeyBundle.upsert({
         where: { userId },
         update: {
@@ -9,6 +8,9 @@ export async function saveUserKeyBundle(userId, keyBundle) {
             signedPreKeyId: keyBundle.signedPreKey.id,
             signedPreKeyPublic: keyBundle.signedPreKey.publicKey,
             signedPreKeySignature: keyBundle.signedPreKey.signature,
+            kyberPreKeyId: keyBundle.kyberPreKey.id,
+            kyberPreKeyPublic: keyBundle.kyberPreKey.publicKey,
+            kyberPreKeySignature: keyBundle.kyberPreKey.signature,
             preKeysJson: JSON.stringify(keyBundle.preKeys),
         },
         create: {
@@ -18,6 +20,9 @@ export async function saveUserKeyBundle(userId, keyBundle) {
             signedPreKeyId: keyBundle.signedPreKey.id,
             signedPreKeyPublic: keyBundle.signedPreKey.publicKey,
             signedPreKeySignature: keyBundle.signedPreKey.signature,
+            kyberPreKeyId: keyBundle.kyberPreKey.id,
+            kyberPreKeyPublic: keyBundle.kyberPreKey.publicKey,
+            kyberPreKeySignature: keyBundle.kyberPreKey.signature,
             preKeysJson: JSON.stringify(keyBundle.preKeys),
         },
     });
@@ -38,6 +43,11 @@ export async function getUserKeyBundleByUsername(username) {
             id: user.keyBundle.signedPreKeyId,
             publicKey: user.keyBundle.signedPreKeyPublic,
             signature: user.keyBundle.signedPreKeySignature,
+        },
+        kyberPreKey: {
+            id: user.keyBundle.kyberPreKeyId,
+            publicKey: user.keyBundle.kyberPreKeyPublic,
+            signature: user.keyBundle.kyberPreKeySignature,
         },
         preKeys: JSON.parse(user.keyBundle.preKeysJson),
     };

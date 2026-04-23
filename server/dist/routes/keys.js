@@ -3,15 +3,22 @@ import { getUserKeyBundleByUsername, saveUserKeyBundle, } from "../services/keyS
 export const keysRouter = Router();
 // Validate the shape of the uploaded public bundle.
 function isValidKeyBundleInput(input) {
-    return (input &&
-        typeof input.registrationId === "number" &&
-        typeof input.identityKey === "string" &&
-        input.signedPreKey &&
-        typeof input.signedPreKey.id === "number" &&
-        typeof input.signedPreKey.publicKey === "string" &&
-        typeof input.signedPreKey.signature === "string" &&
-        Array.isArray(input.preKeys) &&
-        input.preKeys.every((preKey) => typeof preKey.id === "number" && typeof preKey.publicKey === "string"));
+    if (!input || typeof input !== "object") {
+        return false;
+    }
+    const bundle = input;
+    return (typeof bundle.registrationId === "number" &&
+        typeof bundle.identityKey === "string" &&
+        !!bundle.signedPreKey &&
+        typeof bundle.signedPreKey.id === "number" &&
+        typeof bundle.signedPreKey.publicKey === "string" &&
+        typeof bundle.signedPreKey.signature === "string" &&
+        !!bundle.kyberPreKey &&
+        typeof bundle.kyberPreKey.id === "number" &&
+        typeof bundle.kyberPreKey.publicKey === "string" &&
+        typeof bundle.kyberPreKey.signature === "string" &&
+        Array.isArray(bundle.preKeys) &&
+        bundle.preKeys.every((preKey) => typeof preKey.id === "number" && typeof preKey.publicKey === "string"));
 }
 keysRouter.post("/bundle", async (req, res) => {
     if (!req.session.userId) {
