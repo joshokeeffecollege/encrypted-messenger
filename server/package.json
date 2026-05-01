@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "generate": "npx prisma generate --config prisma.config.ts",
     "test": "node --test test/**/*.test.mjs",
-    "build": "tsc",
+    "build": "npm run generate && tsc",
     "start": "node dist/app.js",
     "dev": "nodemon --watch src --ext ts --exec \"npm run build && node dist/app.js\""
   },
