@@ -1,0 +1,29 @@
+{
+  "name": "encrypted-messenger-desktop",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "server": "node scripts/server.mjs",
+    "client": "node scripts/client.mjs",
+    "dev:client": "cd client && npm run dev -- --host 127.0.0.1 --port $CLIENT_PORT --strictPort",
+    "dev:electron": "wait-on tcp:$CLIENT_PORT && electron . --partition $PARTITION --title \"$TITLE\" --renderer-port $CLIENT_PORT",
+    "dev": "concurrently -k -n CLIENT,ELECTRON -c cyan,magenta \"npm run dev:client\" \"npm run dev:electron\"",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm run build",
+    "build": "npm run build:client && npm run build:server",
+    "test:server": "cd server && npm run test",
+    "check:syntax": "node --check electron/main.mjs && node --check electron/preload.cjs && node --check scripts/server.mjs && node --check scripts/client.mjs",
+    "ci": "npm run build && npm run test:server && npm run check:syntax",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@signalapp/libsignal-client": "^0.86.16"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "electron": "^33.2.1",
+    "wait-on": "^8.0.1"
+  }
+}

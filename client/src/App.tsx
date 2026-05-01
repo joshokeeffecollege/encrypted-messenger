@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
-import { Login } from "./components/Login";
-import { Register } from "./components/Register";
-import { Chat } from "./components/Chat";
-import { Inbox } from "./components/Inbox.tsx";
-import { api } from "./api/http.ts";
-import { generateAndStoreKeys, hasKeys } from "./encryptedClient/keyManager.ts";
-import { uploadKeyBundle } from "./encryptedClient/keyApi.ts";
+import { Login } from "./auth/LoginForm";
+import { Register } from "./auth/RegisterForm";
+import { Chat } from "./chat/ChatView";
+import { Inbox } from "./chat/InboxView.tsx";
+import { api, getServerUrl, setServerUrl as saveServerUrl } from "./api/http.ts";
+import { desktopChat } from "./bridge/desktopChat.ts";
+import { makeUserHandle } from "./shared/userHandle.ts";
 import "./App.css";
 
-// authenticated user model
 export interface AuthUser {
   id: string;
   username: string;
@@ -18,28 +17,41 @@ export interface AuthUser {
 type View = "login" | "register";
 
 const App: React.FC = () => {
+  // This file mostly decides which screen the user should see.
   const [user, setUser] = useState<AuthUser | null>(null);
   const [view, setView] = useState<View>("login");
   const [activePeer, setActivePeer] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [serverUrl, setServerUrl] = useState(() => getServerUrl());
 
-  async function ensureUserKeys(authUser: AuthUser) {
-    // Generate keys once per user/device.
-    if (hasKeys(authUser.id)) {
-      return;
-    }
+  async function setUpLoggedInUser(authUser: AuthUser) {
+    await desktopChat.setServerUrl(serverUrl);
 
-    // Create local private keys and upload only the public bundle.
-    const publicBundle = await generateAndStoreKeys(authUser.id);
-    await uploadKeyBundle(publicBundle);
+    // Electron sorts out the local keys for this user.
+    await desktopChat.setUpUser({
+      serverUrl,
+      userId: authUser.id,
+      username: authUser.username,
+    });
+  }
+
+  function handleServerUrlChange(value: string) {
+    setServerUrl(value);
+    saveServerUrl(value);
   }
 
   useEffect(() => {
+    if (!serverUrl) {
+      setLoading(false);
+      return;
+    }
+
+    void desktopChat.setServerUrl(serverUrl);
     api
       .get<AuthUser>("/auth/me")
       .then(async (authUser) => {
+        await setUpLoggedInUser(authUser);
         setUser(authUser);
-        await ensureUserKeys(authUser);
       })
       .catch(() => {
         setUser(null);
@@ -47,12 +59,22 @@ const App: React.FC = () => {
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, [serverUrl]);
 
   const handleLoginSuccess = async (authUser: AuthUser) => {
-    setUser(authUser);
-    setActivePeer(null);
-    await ensureUserKeys(authUser);
+    try {
+      await setUpLoggedInUser(authUser);
+      setUser(authUser);
+      setActivePeer(null);
+    } catch (error) {
+      try {
+        await api.post("/auth/logout");
+      } catch (logoutError) {
+        console.error("Failed to roll back login after bootstrap error", logoutError);
+      }
+
+      throw error;
+    }
   };
 
   const handleRegisterSuccess = (_username: string) => {
@@ -107,11 +129,15 @@ const App: React.FC = () => {
 
           {view === "login" ? (
             <Login
+              serverUrl={serverUrl}
+              onServerUrlChange={handleServerUrlChange}
               onLoginSuccess={handleLoginSuccess}
               onSwitchToRegister={() => setView("register")}
             />
           ) : (
             <Register
+              serverUrl={serverUrl}
+              onServerUrlChange={handleServerUrlChange}
               onRegisterSuccess={handleRegisterSuccess}
               onSwitchToLogin={() => setView("login")}
             />
@@ -129,7 +155,7 @@ const App: React.FC = () => {
             <div>
               <h4 className="mb-0">Encrypted Messenger</h4>
               <small className="text-muted">
-                Logged in as <strong>{user.username}</strong>
+                Logged in as <strong>{makeUserHandle(user.username, serverUrl)}</strong>
               </small>
             </div>
             <button
@@ -146,18 +172,20 @@ const App: React.FC = () => {
                 className="flex-shrink-0 border-end pe-md-3"
                 style={{ width: "100%", maxWidth: 320 }}
               >
-                <Inbox user={user} onOpenChat={openChatWith} />
+                <Inbox user={user} serverUrl={serverUrl} onOpenChat={openChatWith} />
               </div>
 
               <div className="flex-grow-1 ps-md-1">
                 {activePeer ? (
                   <Chat
                     user={user}
+                    serverUrl={serverUrl}
                     peerUsername={activePeer}
                     onBackToInbox={backToInbox}
                   />
                 ) : (
                   <div className="d-flex flex-column justify-content-center align-items-center h-100 text-muted">
+                    {/* Empty state before the user opens a chat */}
                     <p className="mb-1">
                       Select a conversation on the left, or start a new chat.
                     </p>

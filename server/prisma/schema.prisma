@@ -14,23 +14,57 @@ model User {
 
   keyBundle UserKeyBundle?
 
-  messageSent     Message[] @relation("Sender")
-  messageReceived Message[] @relation("Recipient")
+  sentMessages     Message[] @relation("SenderUser")
+  receivedMessages Message[] @relation("RecipientUser")
+}
+
+model RemoteAccount {
+  id                 String   @id @default(cuid())
+  handle             String   @unique
+  username           String
+  domain             String
+  actorUrl           String   @unique
+  inboxUrl           String
+  serverPublicKeyId  String
+  serverPublicKeyPem String
+  keyBundleUrl       String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  sentMessages     Message[] @relation("RemoteSender")
+  receivedMessages Message[] @relation("RemoteRecipient")
 }
 
 model Message {
-  id          String @id @default(cuid())
-  senderId    String
-  recipientId String
+  id                     String   @id @default(cuid())
+  senderUserId           String?
+  senderRemoteAccountId  String?
+  recipientUserId        String?
+  recipientRemoteAccountId String?
+  senderHandle           String
+  recipientHandle        String
+  remoteServer           String?
+  federationMessageId    String?  @unique
+  receivedViaFederation  Boolean  @default(false)
+  deliveryStatus         String   @default("delivered")
 
-  sender    User @relation("Sender", fields: [senderId], references: [id])
-  recipient User @relation("Recipient", fields: [recipientId], references: [id])
+  senderUser           User?          @relation("SenderUser", fields: [senderUserId], references: [id])
+  recipientUser        User?          @relation("RecipientUser", fields: [recipientUserId], references: [id])
+  senderRemoteAccount  RemoteAccount? @relation("RemoteSender", fields: [senderRemoteAccountId], references: [id])
+  recipientRemoteAccount RemoteAccount? @relation("RemoteRecipient", fields: [recipientRemoteAccountId], references: [id])
 
   ciphertext String
   headerJson String
 
   deliveredAt DateTime?
   createdAt   DateTime  @default(now())
+
+  @@index([senderUserId])
+  @@index([recipientUserId])
+  @@index([senderRemoteAccountId])
+  @@index([recipientRemoteAccountId])
+  @@index([senderHandle])
+  @@index([recipientHandle])
 }
 
 model UserKeyBundle {
