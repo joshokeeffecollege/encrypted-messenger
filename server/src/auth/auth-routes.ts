@@ -1,10 +1,16 @@
 import { Router } from "express";
 import { loginUser, registerUser } from "./auth-service.js";
 import { prisma } from "../db/database.js";
+import {
+  requireSession,
+  getLoggedInUserId,
+  sendErrorResponse,
+} from "../http/routeHelpers.js";
 
 export const authRoutes = Router();
 
-function isValidLocalUsername(username: string) {
+// Small helper for usernames on one server.
+export function isValidLocalUsername(username: string) {
   return !username.includes("@");
 }
 
@@ -24,13 +30,15 @@ authRoutes.post("/register", async (req, res) => {
       .json({ error: "Usernames on this server cannot contain @" });
   }
 
-  if (!req.session) {
-    return res.status(500).json({ error: "Session middleware unavailable" });
+  const session = requireSession(req, res);
+
+  if (!session) {
+    return;
   }
 
   try {
     const user = await registerUser(username, password);
-    req.session.userId = user.id;
+    session.userId = user.id;
 
     console.log("User registered", {
       userId: user.id,
@@ -38,13 +46,22 @@ authRoutes.post("/register", async (req, res) => {
     });
 
     return res.status(201).json(user);
-  } catch (error: any) {
-    if (error.message === "Username already exists") {
-      return res.status(409).json({ error: "Username already exists" });
-    }
-
+  } catch (error) {
     console.log("Registration error:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    return sendErrorResponse(
+      res,
+      error,
+      {
+        "Username already exists": {
+          status: 409,
+          body: { error: "Username already exists" },
+        },
+      },
+      {
+        status: 500,
+        body: { error: "Internal server error" },
+      },
+    );
   }
 });
 
@@ -58,13 +75,15 @@ authRoutes.post("/login", async (req, res) => {
     return res.status(400).send("Username and password is required");
   }
 
-  if (!req.session) {
-    return res.status(500).json({ error: "Session middleware unavailable" });
+  const session = requireSession(req, res);
+
+  if (!session) {
+    return;
   }
 
   try {
     const user = await loginUser(username, password);
-    req.session.userId = user.id;
+    session.userId = user.id;
 
     console.log("User logged in", {
       userId: user.id,
@@ -73,22 +92,33 @@ authRoutes.post("/login", async (req, res) => {
     });
 
     return res.status(200).json(user);
-  } catch (error: any) {
-    if (error.message === "Invalid credentials") {
-      return res.status(401).send("Invalid credentials");
-    }
-
+  } catch (error) {
     console.log("Login error:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    return sendErrorResponse(
+      res,
+      error,
+      {
+        "Invalid credentials": {
+          status: 401,
+          body: "Invalid credentials",
+        },
+      },
+      {
+        status: 500,
+        body: { error: "Internal server error" },
+      },
+    );
   }
 });
 
 authRoutes.post("/logout", (req, res) => {
-  if (!req.session) {
-    return res.status(500).json({ error: "Session middleware unavailable" });
+  const session = requireSession(req, res);
+
+  if (!session) {
+    return;
   }
 
-  req.session.destroy((err) => {
+  session.destroy((err) => {
     if (err) {
       return res.status(500).json({
         error: "Could not log out",
@@ -101,19 +131,15 @@ authRoutes.post("/logout", (req, res) => {
 });
 
 authRoutes.get("/me", async (req, res) => {
-  if (!req.session) {
-    return res.status(500).json({ error: "Session middleware unavailable" });
-  }
+  const userId = getLoggedInUserId(req, res);
 
-  if (!req.session.userId) {
-    return res.status(401).json({
-      error: "Not authenticated",
-    });
+  if (!userId) {
+    return;
   }
 
   try {
     const user = await prisma.user.findUnique({
-      where: { id: req.session.userId },
+      where: { id: userId },
     });
 
     if (!user) {

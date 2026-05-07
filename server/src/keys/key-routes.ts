@@ -9,16 +9,12 @@ import {
   looksLikeRemoteHandle,
 } from "../federation/federation-service.js";
 import { getLocalUsername } from "../config/server-config.js";
+import {
+  shortText,
+  getLoggedInUserId,
+} from "../http/routeHelpers.js";
 
 export const keyRoutes = Router();
-
-function preview(value: string, maxLength = 40): string {
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  return `${value.slice(0, maxLength)}...`;
-}
 
 function isValidKeyBundleInput(input: unknown): input is PublicKeyBundleInput {
   if (!input || typeof input !== "object") {
@@ -64,8 +60,10 @@ function isValidKeyBundleInput(input: unknown): input is PublicKeyBundleInput {
 }
 
 keyRoutes.post("/bundle", async (req, res) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({ error: "Not authenticated" });
+  const userId = getLoggedInUserId(req, res);
+
+  if (!userId) {
+    return;
   }
 
   const body = req.body;
@@ -75,19 +73,19 @@ keyRoutes.post("/bundle", async (req, res) => {
   }
 
   console.log("Public key bundle uploaded", {
-    userId: req.session.userId,
+    userId,
     registrationId: body.registrationId,
-    identityKeyPreview: preview(body.identityKey),
+    identityKeyPreview: shortText(body.identityKey),
     signedPreKeyId: body.signedPreKey.id,
-    signedPreKeyPreview: preview(body.signedPreKey.publicKey),
+    signedPreKeyPreview: shortText(body.signedPreKey.publicKey),
     kyberPreKeyId: body.kyberPreKey.id,
-    kyberPreKeyPreview: preview(body.kyberPreKey.publicKey),
+    kyberPreKeyPreview: shortText(body.kyberPreKey.publicKey),
     preKeyCount: body.preKeys.length,
     firstPreKeyId: body.preKeys[0]?.id ?? null,
   });
 
   try {
-    await savePublicKeys(req.session.userId, body);
+    await savePublicKeys(userId, body);
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error("Error saving key bundle:", error);
@@ -96,8 +94,10 @@ keyRoutes.post("/bundle", async (req, res) => {
 });
 
 keyRoutes.get("/:username", async (req, res) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({ error: "Not authenticated" });
+  const userId = getLoggedInUserId(req, res);
+
+  if (!userId) {
+    return;
   }
 
   const username = req.params.username;
@@ -113,7 +113,7 @@ keyRoutes.get("/:username", async (req, res) => {
     }
 
     console.log("Public key bundle fetched", {
-      requestedByUserId: req.session.userId,
+      requestedByUserId: userId,
       forUsername: username,
       registrationId: bundle.registrationId,
       signedPreKeyId: bundle.signedPreKey.id,

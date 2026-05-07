@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 // This is the one database connection the server uses.
 const adapter = new PrismaBetterSqlite3({
-  url: "file:./dev.db",
+  url: process.env.DATABASE_URL || "file:./dev.db",
 });
 
 export const prisma = new PrismaClient({ adapter });

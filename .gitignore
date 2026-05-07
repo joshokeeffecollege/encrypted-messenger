@@ -8,5 +8,6 @@ server/dist/
 server/dev-*.db
 server/prisma/server-*/
 server/prisma/sessions/
+server/.test-temp/
 
 .DS_Store

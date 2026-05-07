@@ -1,6 +1,20 @@
-const savedServerUrl = localStorage.getItem("chat-server-url");
+function readSavedServerUrl() {
+  if (typeof localStorage === "undefined") {
+    return "";
+  }
 
-let serverUrl = savedServerUrl || window.desktop?.serverUrl || "";
+  return localStorage.getItem("chat-server-url") || "";
+}
+
+function readDesktopServerUrl() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return window.desktop?.serverUrl || "";
+}
+
+let serverUrl = readSavedServerUrl() || readDesktopServerUrl() || "";
 
 export function cleanServerUrl(value: string) {
   return value.trim().replace(/\/+$/, "");

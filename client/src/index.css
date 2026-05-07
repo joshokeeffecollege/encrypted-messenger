@@ -1,12 +1,22 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  color: #1f2c33;
+  background:
+    radial-gradient(circle at top, rgba(211, 196, 173, 0.28), transparent 34%),
+    linear-gradient(180deg, #f7f2eb 0%, #f4efe7 42%, #f1ece4 100%);
+  --messenger-ink: #1f2c33;
+  --messenger-muted: #6e7b84;
+  --messenger-panel: rgba(252, 249, 245, 0.92);
+  --messenger-surface: rgba(255, 255, 255, 0.94);
+  --messenger-border: rgba(129, 107, 77, 0.14);
+  --messenger-border-strong: rgba(129, 107, 77, 0.26);
+  --messenger-hover: rgba(217, 205, 187, 0.24);
+  --messenger-selected: rgba(207, 191, 166, 0.28);
+  --messenger-accent: #9f8760;
+  --messenger-accent-strong: #7d6542;
+  --messenger-shadow: 0 28px 80px rgba(74, 57, 39, 0.12);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -15,53 +25,36 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: #486171;
   text-decoration: inherit;
 }
+
 a:hover {
-  color: #535bf2;
+  color: #2f4656;
 }
 
 body {
   margin: 0;
   width: 100%;
   min-height: 100vh;
-  background: #f8f9fa;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+  color: var(--messenger-ink);
+  background: var(--messenger-bg, transparent);
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+button:focus,
+button:focus-visible,
+input:focus,
+input:focus-visible {
+  outline: 3px solid rgba(125, 101, 66, 0.22);
+  outline-offset: 2px;
 }

@@ -1,9 +1,10 @@
 // display the chat conversation and allow sending messages
 
-import React, { useEffect, useState } from "react";
-import type { AuthUser } from "../App.tsx";
+import React, { useState } from "react";
+import type { AuthUser } from "../auth/userTypes.ts";
 import { desktopChat, type ChatMessage } from "../bridge/desktopChat.ts";
 import { makeUserHandle } from "../shared/userHandle.ts";
+import { useAction, useData } from "../shared/asyncTools.ts";
 
 interface ChatProps {
   user: AuthUser;
@@ -18,43 +19,62 @@ export const Chat: React.FC<ChatProps> = ({
   peerUsername,
   onBackToInbox,
 }) => {
-  // displays one chat at a time
+  function areMessagesEqual(
+    currentMessages: ChatMessage[],
+    nextMessages: ChatMessage[],
+  ) {
+    if (currentMessages.length !== nextMessages.length) {
+      return false;
+    }
+
+    return currentMessages.every((message, index) => {
+      const nextMessage = nextMessages[index];
+
+      return (
+        message.id === nextMessage.id &&
+        message.state === nextMessage.state &&
+        message.direction === nextMessage.direction &&
+        message.displayText === nextMessage.displayText &&
+        message.createdAt === nextMessage.createdAt
+      );
+    });
+  }
+
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(false);
-
-  useEffect(() => {
-    void loadChat();
-
-    const interval = setInterval(() => {
-      void loadChat();
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [peerUsername, serverUrl, user.id]);
-
-  // load chats
-  async function loadChat() {
-    setLoading(true);
-
-    // load the conversation from the desktop bridge
-    try {
-      const conversation = await desktopChat.loadChat({
+  const {
+    value: messages,
+    setValue: setMessages,
+    loading,
+    error: loadError,
+  } = useData<ChatMessage[]>({
+    initialValue: [],
+    fallbackMessage: "Unable to load conversation right now.",
+    pollMs: 3000,
+    deps: [peerUsername, serverUrl, user.id],
+    isEqual: areMessagesEqual,
+    load: () =>
+      desktopChat.loadChat({
         serverUrl,
         userId: user.id,
         peerUsername,
-      });
+      }),
+  });
+  const {
+    loading: sending,
+    error: sendError,
+    clearError,
+    run: runSendChat,
+  } = useAction(
+    (plaintext: string) =>
+      desktopChat.sendChat({
+        serverUrl,
+        userId: user.id,
+        peerUsername,
+        plaintext,
+      }),
+    "Unable to send message right now.",
+  );
 
-      setMessages(conversation);
-    } catch (error) {
-      console.error("Failed to load chat:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // send a message
   async function sendChatMessage() {
     const text = input.trim();
 
@@ -62,101 +82,107 @@ export const Chat: React.FC<ChatProps> = ({
       return;
     }
 
-    setSending(true);
+    clearError();
 
     try {
-      const sentMessage = await desktopChat.sendChat({
-        serverUrl,
-        userId: user.id,
-        peerUsername,
-        plaintext: text,
-      });
-
+      const sentMessage = await runSendChat(text);
       setMessages((prev) => [...prev, sentMessage]);
       setInput("");
-    } catch (error) {
-      console.error("Error sending chat message:", error);
-
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Unable to send message right now.";
-
-      alert(message);
-    } finally {
-      setSending(false);
-    }
+    } catch {}
   }
 
   return (
-    <div>
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <div>
+    <div className="chat-view">
+      <div className="chat-header">
+        <div className="chat-header__identity">
           <button
             type="button"
-            className="btn btn-link p-0 me-2 d-md-none"
+            className="btn btn-link chat-back-button d-md-none"
             onClick={onBackToInbox}
           >
-            &larr; Inbox
+            {"<- Inbox"}
           </button>
-          <span className="fw-semibold">
-            {makeUserHandle(peerUsername, serverUrl)}
-          </span>
+          <div>
+            <p className="panel-eyebrow">Conversation</p>
+            <h2 className="chat-title">
+              {makeUserHandle(peerUsername, serverUrl)}
+            </h2>
+          </div>
         </div>
+        <p className="chat-header__copy">
+          Messages stay local until they are securely delivered.
+        </p>
       </div>
 
-      <div
-        className="border rounded p-3 mb-3 bg-light"
-        style={{ height: "60vh", overflowY: "auto" }}
-      >
+      <div className="chat-message-surface">
         {loading && messages.length === 0 && (
-          <p className="text-muted text-center">Loading conversation...</p>
+          <p className="chat-status-message">Loading conversation...</p>
+        )}
+
+        {loadError && messages.length === 0 && (
+          <p className="chat-status-message chat-status-message--error">
+            {loadError}
+          </p>
         )}
 
         {!loading && messages.length === 0 && (
-          <p className="text-muted text-center">No messages yet. Say hi!</p>
+          <div className="chat-status-empty">
+            <div className="chat-status-empty__icon">...</div>
+            <p className="chat-status-empty__title">No messages yet</p>
+            <p className="chat-status-empty__body">
+              Say hi to <strong>{makeUserHandle(peerUsername, serverUrl)}</strong>{" "}
+              to start the conversation.
+            </p>
+          </div>
         )}
 
-        {messages.map((message) => {
-          const isMe = message.direction === "outgoing";
-          const decryptError = message.state === "failed";
+        <div className="chat-message-list">
+          {messages.map((message) => {
+            const isMe = message.direction === "outgoing";
+            const decryptError = message.state === "failed";
 
-          return (
-            <div
-              key={message.id}
-              className={`d-flex mb-2 ${
-                isMe ? "justify-content-end" : "justify-content-start"
-              }`}
-            >
+            return (
               <div
-                className={`p-2 rounded-3 ${
+                key={message.id}
+                className={`chat-message-row ${
                   isMe
-                    ? "bg-primary text-white"
-                    : decryptError
-                      ? "bg-warning-subtle border border-warning"
-                      : "bg-white border"
+                    ? "chat-message-row--outgoing"
+                    : "chat-message-row--incoming"
                 }`}
-                style={{ maxWidth: "75%" }}
               >
-                {!isMe && (
-                  <div className="small text-muted mb-1">
-                    {makeUserHandle(message.senderUsername, serverUrl)}
+                <div
+                  className={`chat-bubble ${
+                    isMe
+                      ? "chat-bubble--outgoing"
+                      : decryptError
+                        ? "chat-bubble--failed"
+                        : "chat-bubble--incoming"
+                  }`}
+                >
+                  {!isMe && (
+                    <div className="chat-bubble__sender">
+                      {makeUserHandle(message.senderUsername, serverUrl)}
+                    </div>
+                  )}
+                  <div className="chat-bubble__body">{message.displayText}</div>
+                  <div className="chat-bubble__timestamp">
+                    {new Date(message.createdAt).toLocaleTimeString()}
                   </div>
-                )}
-                <div>{message.displayText}</div>
-                <div className="small mt-1 text-end">
-                  {new Date(message.createdAt).toLocaleTimeString()}
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
-      <div className="input-group">
+      <div className="chat-composer">
+        <label className="visually-hidden" htmlFor="chat-message-input">
+          Message {makeUserHandle(peerUsername, serverUrl)}
+        </label>
         <input
+          id="chat-message-input"
           type="text"
-          className="form-control"
+          className="form-control chat-composer__input"
           placeholder={`Message @${makeUserHandle(peerUsername, serverUrl)}`}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -167,14 +193,16 @@ export const Chat: React.FC<ChatProps> = ({
           }}
         />
         <button
-          className="btn btn-primary"
+          className="btn btn-primary chat-composer__submit"
           type="button"
           onClick={() => void sendChatMessage()}
           disabled={sending}
         >
-          Send
+          {sending ? "Sending..." : "Send"}
         </button>
       </div>
+
+      {sendError && <div className="chat-send-error">{sendError}</div>}
     </div>
   );
 };

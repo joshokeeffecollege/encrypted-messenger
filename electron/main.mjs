@@ -69,6 +69,11 @@ function getWindowServerUrl(sender) {
   return serverUrlsByWindow.get(sender.id) ?? getServerBaseUrl();
 }
 
+function syncSenderServerUrl(sender, serverUrl) {
+  // Each window can point at its own server, so we store that here.
+  serverUrlsByWindow.set(sender.id, cleanServerUrl(serverUrl));
+}
+
 async function readJson(response) {
   const text = await response.text();
 
@@ -108,6 +113,29 @@ async function fetchFromServer(sender, pathName, options = {}) {
   }
 
   return data;
+}
+
+async function fetchForWindow(event, pathName, options = {}) {
+  // This is a small wrapper so IPC handlers do not repeat event.sender everywhere.
+  return fetchFromServer(event.sender, pathName, options);
+}
+
+async function runWithServerUrl(event, serverUrl, run) {
+  // Most IPC calls begin by updating the window's current server URL.
+  syncSenderServerUrl(event.sender, serverUrl);
+  return run();
+}
+
+function isNotFoundError(error) {
+  return error instanceof Error && "status" in error && error.status === 404;
+}
+
+async function getPeerKeys(event, peerUsername) {
+  // Before sending a message, we need the other person's public key bundle.
+  return fetchForWindow(
+    event,
+    `/keys/${encodeURIComponent(peerUsername)}`,
+  );
 }
 
 function getSenderWindowTitle(event) {
@@ -160,138 +188,146 @@ function sendDebugLog(sender, event) {
   });
 }
 
+function sendAllDebugLogs(sender, events) {
+  // Some chat operations produce many debug events, so we forward them in a loop.
+  for (const event of events) {
+    sendDebugLog(sender, event);
+  }
+}
+
 function registerIpcHandlers() {
+  // This is the main bridge between the React app and the Electron/crypto layer.
   ipcMain.handle("chat:setServerUrl", async (event, serverUrl) => {
-    serverUrlsByWindow.set(event.sender.id, cleanServerUrl(serverUrl));
+    syncSenderServerUrl(event.sender, serverUrl);
   });
 
   ipcMain.handle("chat:setUpUser", async (event, data) => {
-    serverUrlsByWindow.set(event.sender.id, cleanServerUrl(data.serverUrl));
-    const bundle = await chatService.setUpUser(data);
+    return runWithServerUrl(event, data.serverUrl, async () => {
+      // We create or load local keys, then upload the public bundle to the server.
+      const bundle = await chatService.setUpUser(data);
 
-    sendDebugLog(event.sender, {
-      stage: "keys",
-      action: "setUpUser",
-      userId: data.userId,
-      username: data.username,
-      registrationId: bundle.registrationId,
-      identityKeyPreview: shortenText(bundle.identityKey),
-      signedPreKeyId: bundle.signedPreKey.id,
-      kyberPreKeyId: bundle.kyberPreKey.id,
-      preKeyCount: bundle.preKeys.length,
-    });
+      sendDebugLog(event.sender, {
+        stage: "keys",
+        action: "setUpUser",
+        userId: data.userId,
+        username: data.username,
+        registrationId: bundle.registrationId,
+        identityKeyPreview: shortenText(bundle.identityKey),
+        signedPreKeyId: bundle.signedPreKey.id,
+        kyberPreKeyId: bundle.kyberPreKey.id,
+        preKeyCount: bundle.preKeys.length,
+      });
 
-    await fetchFromServer(event.sender, "/keys/bundle", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(bundle),
-    });
+      await fetchForWindow(event, "/keys/bundle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bundle),
+      });
 
-    sendDebugLog(event.sender, {
-      stage: "keys",
-      action: "saveBundleToServer",
-      userId: data.userId,
-      username: data.username,
-      registrationId: bundle.registrationId,
+      sendDebugLog(event.sender, {
+        stage: "keys",
+        action: "saveBundleToServer",
+        userId: data.userId,
+        username: data.username,
+        registrationId: bundle.registrationId,
+      });
     });
   });
 
   ipcMain.handle("chat:loadInbox", async (event, data) => {
-    serverUrlsByWindow.set(event.sender.id, cleanServerUrl(data.serverUrl));
-    const inbox = await fetchFromServer(event.sender, "/inbox");
+    return runWithServerUrl(event, data.serverUrl, async () => {
+      // The server stores encrypted inbox items and the local service builds previews.
+      const inbox = await fetchForWindow(event, "/inbox");
 
-    return chatService.loadInbox({
-      userId: data.userId,
-      messages: inbox,
+      return chatService.loadInbox({
+        userId: data.userId,
+        messages: inbox,
+      });
     });
   });
 
   ipcMain.handle("chat:loadChat", async (event, data) => {
-    serverUrlsByWindow.set(event.sender.id, cleanServerUrl(data.serverUrl));
-    const inbox = await fetchFromServer(event.sender, "/inbox");
-    const result = await chatService.loadChat({
-      userId: data.userId,
-      peerUsername: data.peerUsername,
-      messages: inbox,
+    return runWithServerUrl(event, data.serverUrl, async () => {
+      // We fetch raw encrypted messages first, then decrypt/filter them locally.
+      const inbox = await fetchForWindow(event, "/inbox");
+      const result = await chatService.loadChat({
+        userId: data.userId,
+        peerUsername: data.peerUsername,
+        messages: inbox,
+      });
+
+      sendAllDebugLogs(event.sender, result.debugEvents);
+      return result.messages;
     });
-
-    for (const debugEvent of result.debugEvents) {
-      sendDebugLog(event.sender, debugEvent);
-    }
-
-    return result.messages;
   });
 
   ipcMain.handle("chat:checkPeer", async (event, data) => {
-    serverUrlsByWindow.set(event.sender.id, cleanServerUrl(data.serverUrl));
+    return runWithServerUrl(event, data.serverUrl, async () => {
+      try {
+        // This checks whether the other user has uploaded keys yet.
+        const peerBundle = await getPeerKeys(event, data.peerUsername);
 
-    try {
-      const peerBundle = await fetchFromServer(
-        event.sender,
-        `/keys/${encodeURIComponent(data.peerUsername)}`,
-      );
+        return {
+          found: true,
+          username: peerBundle.username ?? data.peerUsername,
+        };
+      } catch (error) {
+        if (isNotFoundError(error)) {
+          throw new Error(`Could not find ${data.peerUsername} on this server.`);
+        }
 
-      return {
-        found: true,
-        username: peerBundle.username ?? data.peerUsername,
-      };
-    } catch (error) {
-      if (error instanceof Error && "status" in error && error.status === 404) {
-        throw new Error(`Could not find ${data.peerUsername} on this server.`);
+        throw error;
       }
-
-      throw error;
-    }
+    });
   });
 
   ipcMain.handle("chat:sendChat", async (event, data) => {
-    serverUrlsByWindow.set(event.sender.id, cleanServerUrl(data.serverUrl));
-    let peerBundle;
+    return runWithServerUrl(event, data.serverUrl, async () => {
+      let peerBundle;
 
-    try {
-      peerBundle = await fetchFromServer(
-        event.sender,
-        `/keys/${encodeURIComponent(data.peerUsername)}`,
-      );
-    } catch (error) {
-      if (error.status !== 404) {
-        throw error;
+      try {
+        peerBundle = await getPeerKeys(event, data.peerUsername);
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
+
+        throw new Error(
+          `No key bundle is available for @${data.peerUsername}. They need to sign in first.`,
+        );
       }
 
-      throw new Error(
-        `No key bundle is available for @${data.peerUsername}. They need to sign in first.`,
-      );
-    }
+      // The local crypto service encrypts first, then we save ciphertext through the server.
+      const result = await chatService.sendChat({
+        userId: data.userId,
+        peerUsername: data.peerUsername,
+        plaintext: data.plaintext,
+        peerBundle,
+        saveEncryptedMessage: (messageData) =>
+          fetchForWindow(event, "/inbox/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(messageData),
+          }),
+      });
 
-    const result = await chatService.sendChat({
-      userId: data.userId,
-      peerUsername: data.peerUsername,
-      plaintext: data.plaintext,
-      peerBundle,
-      saveEncryptedMessage: (messageData) =>
-        fetchFromServer(event.sender, "/inbox/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(messageData),
-        }),
+      sendDebugLog(event.sender, {
+        stage: "message",
+        action: "encrypt",
+        userId: data.userId,
+        windowTitle: getSenderWindowTitle(event),
+        peerUsername: data.peerUsername,
+        sessionBootstrap: result.debug.sessionBootstrap,
+        messageType: result.debug.messageType,
+        plaintextPreview: shortenText(result.debug.plaintext),
+        plaintextLength: result.debug.plaintextLength,
+        ciphertextPreview: result.debug.ciphertext,
+        ciphertextLength: result.debug.ciphertextLength,
+        senderRegistrationId: result.debug.senderRegistrationId,
+      });
+
+      return result.message;
     });
-
-    sendDebugLog(event.sender, {
-      stage: "message",
-      action: "encrypt",
-      userId: data.userId,
-      windowTitle: getSenderWindowTitle(event),
-      peerUsername: data.peerUsername,
-      sessionBootstrap: result.debug.sessionBootstrap,
-      messageType: result.debug.messageType,
-      plaintextPreview: shortenText(result.debug.plaintext),
-      plaintextLength: result.debug.plaintextLength,
-      ciphertextPreview: result.debug.ciphertext,
-      ciphertextLength: result.debug.ciphertextLength,
-      senderRegistrationId: result.debug.senderRegistrationId,
-    });
-
-    return result.message;
   });
 }
 

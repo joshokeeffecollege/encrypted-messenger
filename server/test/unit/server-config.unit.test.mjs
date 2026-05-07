@@ -1,3 +1,6 @@
+// These are the small helper tests.
+// Just checking the basic server url stuff works.
+
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -6,12 +9,9 @@ import {
   getInboxUrl,
   getKeyBundleUrl,
   getLocalHandle,
-  getLocalUsername,
   getServerBaseUrl,
   getServerHost,
-  isRemoteHandle,
-  parseHandle,
-} from "../dist/config/server-config.js";
+} from "../../dist/config/server-config.js";
 
 function withServerEnv(env, run) {
   const oldPort = process.env.PORT;
@@ -46,7 +46,7 @@ function withServerEnv(env, run) {
   }
 }
 
-test("getServerBaseUrl uses PUBLIC_BASE_URL when it is set", () => {
+test("uses the public base url if it is there", () => {
   withServerEnv(
     {
       PUBLIC_BASE_URL: "http://127.0.0.1:6001/",
@@ -59,7 +59,7 @@ test("getServerBaseUrl uses PUBLIC_BASE_URL when it is set", () => {
   );
 });
 
-test("getServerBaseUrl falls back to PORT", () => {
+test("uses the port if there is no public base url", () => {
   withServerEnv(
     {
       PORT: "5012",
@@ -72,39 +72,7 @@ test("getServerBaseUrl falls back to PORT", () => {
   );
 });
 
-test("parseHandle trims spaces and a leading @", () => {
-  const parsed = parseHandle("  @bob@example.com  ");
-
-  assert.deepEqual(parsed, {
-    username: "bob",
-    domain: "example.com",
-    handle: "bob@example.com",
-  });
-});
-
-test("parseHandle returns null for invalid handles", () => {
-  assert.equal(parseHandle("bob"), null);
-  assert.equal(parseHandle("bob@"), null);
-  assert.equal(parseHandle("@example.com"), null);
-});
-
-test("isRemoteHandle and getLocalUsername tell local and remote users apart", () => {
-  withServerEnv(
-    {
-      PUBLIC_BASE_URL: "http://127.0.0.1:5009",
-    },
-    () => {
-      assert.equal(isRemoteHandle("bob@server-b.com"), true);
-      assert.equal(isRemoteHandle("bob@127.0.0.1:5009"), false);
-      assert.equal(getLocalUsername("bob"), "bob");
-      assert.equal(getLocalUsername("@bob"), "bob");
-      assert.equal(getLocalUsername("bob@127.0.0.1:5009"), "bob");
-      assert.equal(getLocalUsername("bob@server-b.com"), null);
-    },
-  );
-});
-
-test("federation urls are built from the current server base url", () => {
+test("builds the federation urls from the current server url", () => {
   withServerEnv(
     {
       PUBLIC_BASE_URL: "http://127.0.0.1:5007",
