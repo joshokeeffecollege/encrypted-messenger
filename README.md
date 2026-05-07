@@ -1,37 +1,30 @@
-## Prerequisites
+## Setup
 
-- Node.js & npm
+Install dependencies:
 
-## Install & Run
+```bash
+npm install
+cd client && npm install
+cd ../server && npm install
+```
 
-**1. Server**
+Create the database:
 
 ```bash
 cd server
-npm install
 npx prisma db push
-npm run build
-npm start
 ```
 
-**2. Client**
+## Run
+
+Start the server:
 
 ```bash
-cd client
-npm install
-npm run dev
+npm run server
 ```
 
-**3. Open the app**
+In a second terminal, start the desktop client:
 
-- UI: `http://localhost:5173`
-- API: `http://localhost:5001`
-
-## Environment Variables
-
-Create a `server/.env` file to override defaults:
-
-```env
-PORT=5001
-SESSION_SECRET=change-me-in-production
+```bash
+npm run dev
 ```

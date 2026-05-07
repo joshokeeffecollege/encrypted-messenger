@@ -2,21 +2,17 @@
   font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #1f2c33;
-  background:
-    radial-gradient(circle at top, rgba(211, 196, 173, 0.28), transparent 34%),
-    linear-gradient(180deg, #f7f2eb 0%, #f4efe7 42%, #f1ece4 100%);
-  --messenger-ink: #1f2c33;
-  --messenger-muted: #6e7b84;
-  --messenger-panel: rgba(252, 249, 245, 0.92);
-  --messenger-surface: rgba(255, 255, 255, 0.94);
-  --messenger-border: rgba(129, 107, 77, 0.14);
-  --messenger-border-strong: rgba(129, 107, 77, 0.26);
-  --messenger-hover: rgba(217, 205, 187, 0.24);
-  --messenger-selected: rgba(207, 191, 166, 0.28);
-  --messenger-accent: #9f8760;
-  --messenger-accent-strong: #7d6542;
-  --messenger-shadow: 0 28px 80px rgba(74, 57, 39, 0.12);
+  color: #111827;
+  background: #f3f4f6;
+  --messenger-ink: #111827;
+  --messenger-muted: #6b7280;
+  --messenger-surface: #ffffff;
+  --messenger-surface-muted: #f9fafb;
+  --messenger-border: #e5e7eb;
+  --messenger-border-strong: #d1d5db;
+  --messenger-hover: #f3f4f6;
+  --messenger-selected: #eef2ff;
+  --messenger-accent-strong: #4f46e5;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -25,12 +21,12 @@
 
 a {
   font-weight: 500;
-  color: #486171;
+  color: #374151;
   text-decoration: inherit;
 }
 
 a:hover {
-  color: #2f4656;
+  color: #111827;
 }
 
 body {
@@ -55,6 +51,6 @@ button:focus,
 button:focus-visible,
 input:focus,
 input:focus-visible {
-  outline: 3px solid rgba(125, 101, 66, 0.22);
+  outline: 3px solid rgba(79, 70, 229, 0.18);
   outline-offset: 2px;
 }

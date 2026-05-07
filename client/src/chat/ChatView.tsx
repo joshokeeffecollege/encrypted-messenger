@@ -1,6 +1,6 @@
 // display the chat conversation and allow sending messages
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "../auth/userTypes.ts";
 import { desktopChat, type ChatMessage } from "../bridge/desktopChat.ts";
 import { makeUserHandle } from "../shared/userHandle.ts";
@@ -19,6 +19,9 @@ export const Chat: React.FC<ChatProps> = ({
   peerUsername,
   onBackToInbox,
 }) => {
+  const messageListRef = useRef<HTMLDivElement | null>(null);
+  const [hasResolvedInitialLoad, setHasResolvedInitialLoad] = useState(false);
+
   function areMessagesEqual(
     currentMessages: ChatMessage[],
     nextMessages: ChatMessage[],
@@ -56,6 +59,7 @@ export const Chat: React.FC<ChatProps> = ({
       desktopChat.loadChat({
         serverUrl,
         userId: user.id,
+        username: user.username,
         peerUsername,
       }),
   });
@@ -91,6 +95,26 @@ export const Chat: React.FC<ChatProps> = ({
     } catch {}
   }
 
+  useEffect(() => {
+    setHasResolvedInitialLoad(false);
+  }, [peerUsername, serverUrl, user.id]);
+
+  useEffect(() => {
+    if (!loading) {
+      setHasResolvedInitialLoad(true);
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    const messageList = messageListRef.current;
+
+    if (!messageList) {
+      return;
+    }
+
+    messageList.scrollTop = messageList.scrollHeight;
+  }, [messages]);
+
   return (
     <div className="chat-view">
       <div className="chat-header">
@@ -109,13 +133,10 @@ export const Chat: React.FC<ChatProps> = ({
             </h2>
           </div>
         </div>
-        <p className="chat-header__copy">
-          Messages stay local until they are securely delivered.
-        </p>
       </div>
 
       <div className="chat-message-surface">
-        {loading && messages.length === 0 && (
+        {loading && messages.length === 0 && !hasResolvedInitialLoad && (
           <p className="chat-status-message">Loading conversation...</p>
         )}
 
@@ -125,9 +146,8 @@ export const Chat: React.FC<ChatProps> = ({
           </p>
         )}
 
-        {!loading && messages.length === 0 && (
+        {messages.length === 0 && hasResolvedInitialLoad && !loadError && (
           <div className="chat-status-empty">
-            <div className="chat-status-empty__icon">...</div>
             <p className="chat-status-empty__title">No messages yet</p>
             <p className="chat-status-empty__body">
               Say hi to <strong>{makeUserHandle(peerUsername, serverUrl)}</strong>{" "}
@@ -136,7 +156,7 @@ export const Chat: React.FC<ChatProps> = ({
           </div>
         )}
 
-        <div className="chat-message-list">
+        <div ref={messageListRef} className="chat-message-list">
           {messages.map((message) => {
             const isMe = message.direction === "outgoing";
             const decryptError = message.state === "failed";

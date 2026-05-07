@@ -83,7 +83,10 @@ export function useData<T>({
       const nextValue = await loadEvent();
 
       if (mountedRef.current) {
-        setValue(nextValue);
+        setValue((currentValue) =>
+          isEqual?.(currentValue, nextValue) ? currentValue : nextValue,
+        );
+        hasLoadedRef.current = true;
       }
 
       return nextValue;

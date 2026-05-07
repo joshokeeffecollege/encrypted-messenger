@@ -4,15 +4,66 @@ function makeSavedMessageId(peerUsername, messageId) {
   return `${peerUsername}:${messageId}`;
 }
 
-export async function readSavedMessage(rootDir, userId, peerUsername, messageId) {
-  const value = await loadText(
-    rootDir,
-    userId,
-    "message-cache",
-    makeSavedMessageId(peerUsername, messageId),
-  );
+function readServerHost(serverUrl) {
+  try {
+    return new URL(serverUrl).host;
+  } catch {
+    return "";
+  }
+}
 
-  return value ? JSON.parse(value) : null;
+function getPeerCacheKeys(peerUsername, serverUrl = "") {
+  const trimmedPeer = peerUsername.trim().replace(/^@/, "");
+
+  if (!trimmedPeer) {
+    return [];
+  }
+
+  const keys = new Set([trimmedPeer]);
+  const splitAt = trimmedPeer.lastIndexOf("@");
+
+  if (splitAt === -1) {
+    const serverHost = readServerHost(serverUrl);
+
+    if (serverHost) {
+      keys.add(`${trimmedPeer}@${serverHost}`);
+    }
+
+    return Array.from(keys);
+  }
+
+  const username = trimmedPeer.slice(0, splitAt);
+  const domain = trimmedPeer.slice(splitAt + 1);
+  const serverHost = readServerHost(serverUrl);
+
+  if (serverHost && domain === serverHost) {
+    keys.add(username);
+  }
+
+  return Array.from(keys);
+}
+
+export async function readSavedMessage(
+  rootDir,
+  userId,
+  peerUsername,
+  messageId,
+  serverUrl = "",
+) {
+  for (const cacheKey of getPeerCacheKeys(peerUsername, serverUrl)) {
+    const value = await loadText(
+      rootDir,
+      userId,
+      "message-cache",
+      makeSavedMessageId(cacheKey, messageId),
+    );
+
+    if (value) {
+      return JSON.parse(value);
+    }
+  }
+
+  return null;
 }
 
 export async function saveMessageText(
@@ -21,14 +72,17 @@ export async function saveMessageText(
   peerUsername,
   messageId,
   savedMessage,
+  serverUrl = "",
 ) {
-  await saveText(
-    rootDir,
-    userId,
-    "message-cache",
-    makeSavedMessageId(peerUsername, messageId),
-    JSON.stringify(savedMessage),
-  );
+  for (const cacheKey of getPeerCacheKeys(peerUsername, serverUrl)) {
+    await saveText(
+      rootDir,
+      userId,
+      "message-cache",
+      makeSavedMessageId(cacheKey, messageId),
+      JSON.stringify(savedMessage),
+    );
+  }
 }
 
 export function makeChatMessage(message, userId, displayText, state) {
@@ -47,7 +101,7 @@ export function makeChatMessage(message, userId, displayText, state) {
 }
 
 export async function buildInbox(rootDir, data) {
-  const { userId, messages } = data;
+  const { userId, messages, serverUrl } = data;
   const chatList = new Map();
 
   for (const message of messages) {
@@ -61,6 +115,7 @@ export async function buildInbox(rootDir, data) {
       userId,
       peerUsername,
       message.id,
+      serverUrl,
     );
     let preview = "[Encrypted message]";
 

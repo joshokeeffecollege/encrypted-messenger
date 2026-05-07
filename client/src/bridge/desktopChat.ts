@@ -36,12 +36,17 @@ export interface ChatMessage {
 export interface LoadChatData {
   serverUrl: string;
   userId: string;
+  username: string;
   peerUsername: string;
 }
 
-export interface CheckPeerData extends LoadChatData {}
+export interface CheckPeerData {
+  serverUrl: string;
+  userId: string;
+  peerUsername: string;
+}
 
-export interface SendChatData extends LoadChatData {
+export interface SendChatData extends CheckPeerData {
   plaintext: string;
 }
 

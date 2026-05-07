@@ -34,6 +34,7 @@ declare global {
       loadChat(data: {
         serverUrl: string;
         userId: string;
+        username: string;
         peerUsername: string;
       }): Promise<
         Array<{

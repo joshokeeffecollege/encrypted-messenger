@@ -1,14 +1,14 @@
-import { useState } from "react";
 import { desktopChat, type InboxPreview } from "../bridge/desktopChat";
 import type { AuthUser } from "../auth/userTypes";
 import { makeUserHandle } from "../shared/userHandle";
-import { useAction, useData } from "../shared/asyncTools";
+import { useData } from "../shared/asyncTools";
 
 interface InboxProps {
   user: AuthUser;
   serverUrl: string;
   onOpenChat: (peerUsername: string) => void;
   activePeer: string | null;
+  onStartNewChat: () => void;
 }
 
 export const Inbox: React.FC<InboxProps> = ({
@@ -16,54 +16,43 @@ export const Inbox: React.FC<InboxProps> = ({
   serverUrl,
   onOpenChat,
   activePeer,
+  onStartNewChat,
 }) => {
-  const [search, setSearch] = useState("");
+  function areConversationsEqual(
+    currentConversations: InboxPreview[],
+    nextConversations: InboxPreview[],
+  ) {
+    if (currentConversations.length !== nextConversations.length) {
+      return false;
+    }
+
+    return currentConversations.every((conversation, index) => {
+      const nextConversation = nextConversations[index];
+
+      return (
+        conversation.peerUsername === nextConversation.peerUsername &&
+        conversation.lastMessagePreview === nextConversation.lastMessagePreview &&
+        conversation.lastCreatedAt === nextConversation.lastCreatedAt &&
+        conversation.unreadCount === nextConversation.unreadCount
+      );
+    });
+  }
+
   const {
     value: conversations,
-    loading,
     error: inboxError,
-    refresh: refreshInbox,
   } = useData<InboxPreview[]>({
     initialValue: [],
     fallbackMessage: "Unable to load the inbox right now.",
+    pollMs: 5000,
     deps: [serverUrl, user.id],
+    isEqual: areConversationsEqual,
     load: () =>
       desktopChat.loadInbox({
         serverUrl,
         userId: user.id,
       }),
   });
-  const {
-    loading: checkingUser,
-    error: chatError,
-    clearError,
-    run: runPeerCheck,
-  } = useAction(
-    (peerUsername: string) =>
-      desktopChat.checkPeer({
-        serverUrl,
-        userId: user.id,
-        peerUsername,
-      }),
-    "Could not find that user on the selected server.",
-  );
-
-  async function handleStartNewChat(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = search.trim();
-
-    if (!trimmed) {
-      return;
-    }
-
-    clearError();
-
-    try {
-      const result = await runPeerCheck(trimmed);
-      setSearch("");
-      onOpenChat(result.username);
-    } catch {}
-  }
 
   function formatTime(iso: string) {
     const d = new Date(iso);
@@ -75,70 +64,14 @@ export const Inbox: React.FC<InboxProps> = ({
 
   return (
     <div className="inbox-view">
-      <div className="inbox-header">
-        <div>
-          <p className="panel-eyebrow">Inbox</p>
-          <h2 className="panel-title">Messages</h2>
-        </div>
-        <p className="panel-copy">
-          Pick up an existing conversation or start a new secure thread.
-        </p>
-      </div>
-
-      <div className="inbox-compose-card">
-        <div className="inbox-compose-card__header">
-          <div>
-            <h3 className="inbox-section-title">Start new chat</h3>
-            <p className="inbox-section-copy">
-              Message a local username or a remote handle like{" "}
-              <span className="inbox-inline-code">bob@server.example</span>.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-secondary inbox-refresh-button"
-            onClick={() => void refreshInbox()}
-            disabled={loading}
-          >
-            {loading ? "Refreshing..." : "Refresh inbox"}
-          </button>
-        </div>
-
-        <form onSubmit={handleStartNewChat} className="inbox-compose-form">
-          <input
-            type="text"
-            className="form-control inbox-compose-input"
-            placeholder="Enter username or user@server..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button
-            type="submit"
-            className="btn btn-primary inbox-compose-submit"
-            disabled={checkingUser}
-          >
-            {checkingUser ? "Checking..." : "Chat"}
-          </button>
-        </form>
-
-        <p className="inbox-supporting-copy">
-          They&apos;ll receive your message next time they open the app.
-        </p>
-
-        {chatError && <div className="inbox-error-message">{chatError}</div>}
-      </div>
-
       <div className="inbox-list-card">
         <div className="inbox-list-card__header">
           <div>
             <h3 className="inbox-section-title">Conversations</h3>
-            <p className="inbox-section-copy">
-              Recent chats synced from your local encrypted store.
-            </p>
           </div>
           <small className="inbox-meta-text">
             {conversations.length === 0
-              ? "No conversations yet"
+              ? ""
               : `${conversations.length} conversation${
                   conversations.length > 1 ? "s" : ""
                 }`}
@@ -147,13 +80,11 @@ export const Inbox: React.FC<InboxProps> = ({
 
         {inboxError && <div className="inbox-error-banner">{inboxError}</div>}
 
-        {conversations.length === 0 && !loading ? (
+        {conversations.length === 0 ? (
           <div className="inbox-empty-state">
-            <div className="inbox-empty-state__icon">...</div>
             <p className="inbox-empty-state__title">No conversations yet</p>
             <p className="inbox-empty-state__body">
-              Nobody has messaged you yet. Start a new chat above to create your
-              first thread.
+              Click the "New chat" button to search for a user to start a conversation.
             </p>
           </div>
         ) : (
@@ -193,6 +124,16 @@ export const Inbox: React.FC<InboxProps> = ({
             })}
           </div>
         )}
+
+        <div className="inbox-footer-action">
+          <button
+            type="button"
+            className="btn btn-primary inbox-footer-action__button"
+            onClick={onStartNewChat}
+          >
+            New chat
+          </button>
+        </div>
       </div>
     </div>
   );

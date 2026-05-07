@@ -153,14 +153,15 @@ export async function sendChatMessage(rootDir, data) {
   // We save our own plaintext once so it can be shown again later.
   await saveMessageText(
     rootDir,
-    data.userId,
-    data.peerUsername,
-    savedServerMessage.id,
-    {
-      displayText: encrypted.plaintext,
-      state: "resolved",
-    },
-  );
+      data.userId,
+      data.peerUsername,
+      savedServerMessage.id,
+      {
+        displayText: encrypted.plaintext,
+        state: "resolved",
+      },
+      data.serverUrl,
+    );
 
   return {
     message: makeChatMessage(
@@ -202,6 +203,7 @@ export async function loadChatMessages(rootDir, data) {
       data.userId,
       data.peerUsername,
       message.id,
+      data.serverUrl,
     );
 
     if (savedMessage) {
@@ -247,6 +249,7 @@ export async function loadChatMessages(rootDir, data) {
           displayText: plaintext,
           state: "resolved",
         },
+        data.serverUrl,
       );
 
       debugLogs.push({
@@ -282,6 +285,7 @@ export async function loadChatMessages(rootDir, data) {
           displayText,
           state,
         },
+        data.serverUrl,
       );
 
       debugLogs.push({

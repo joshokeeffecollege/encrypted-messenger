@@ -5,10 +5,12 @@ import type { AuthUser } from "./auth/userTypes";
 import { useSession } from "./app/useSession.ts";
 import { Chat } from "./chat/ChatView";
 import { Inbox } from "./chat/InboxView.tsx";
+import { NewChat } from "./chat/NewChatView.tsx";
 import { makeUserHandle } from "./shared/userHandle.ts";
 import "./App.css";
 
 type View = "login" | "register";
+type Pane = "empty" | "new-chat" | "chat";
 
 const App: React.FC = () => {
   const {
@@ -22,6 +24,7 @@ const App: React.FC = () => {
   } = useSession();
   const [view, setView] = useState<View>("login");
   const [activePeer, setActivePeer] = useState<string | null>(null);
+  const [activePane, setActivePane] = useState<Pane>("empty");
 
   const handleRegisterSuccess = (_username: string) => {
     setView("login");
@@ -30,15 +33,23 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     await onLogout();
     setActivePeer(null);
+    setActivePane("empty");
     setView("login");
   };
 
   const openChatWith = (peerUsername: string) => {
     setActivePeer(peerUsername);
+    setActivePane("chat");
   };
 
   const backToInbox = () => {
     setActivePeer(null);
+    setActivePane("empty");
+  };
+
+  const openNewChat = () => {
+    setActivePeer(null);
+    setActivePane("new-chat");
   };
 
   if (loading) {
@@ -74,6 +85,7 @@ const App: React.FC = () => {
               onLoginSuccess={async (authUser: AuthUser) => {
                 await onLoginSuccess(authUser);
                 setActivePeer(null);
+                setActivePane("empty");
               }}
               onSwitchToRegister={() => setView("register")}
             />
@@ -95,7 +107,6 @@ const App: React.FC = () => {
       <div className="messenger-app-frame">
         <header className="messenger-topbar">
           <div>
-            <p className="messenger-eyebrow">Secure workspace</p>
             <h1 className="messenger-title">Encrypted Messenger</h1>
             <p className="messenger-subtitle">
               Logged in as{" "}
@@ -117,24 +128,29 @@ const App: React.FC = () => {
               serverUrl={serverUrl}
               onOpenChat={openChatWith}
               activePeer={activePeer}
+              onStartNewChat={openNewChat}
             />
           </aside>
 
           <section className="messenger-chat-pane">
-            {activePeer ? (
+            {activePane === "chat" && activePeer ? (
               <Chat
                 user={user}
                 serverUrl={serverUrl}
                 peerUsername={activePeer}
                 onBackToInbox={backToInbox}
               />
+            ) : activePane === "new-chat" ? (
+              <NewChat
+                user={user}
+                serverUrl={serverUrl}
+                onOpenChat={openChatWith}
+              />
             ) : (
               <div className="chat-empty-state">
-                <div className="chat-empty-state__icon">EM</div>
                 <h2 className="chat-empty-state__title">Choose a conversation</h2>
                 <p className="chat-empty-state__body">
-                  Select a thread from the inbox or start a new chat to begin a
-                  secure conversation.
+                  Select a thread from the inbox or start a new chat.
                 </p>
               </div>
             )}

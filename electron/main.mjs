@@ -70,7 +70,7 @@ function getWindowServerUrl(sender) {
 }
 
 function syncSenderServerUrl(sender, serverUrl) {
-  // Each window can point at its own server, so we store that here.
+  // Each window can point at its own server
   serverUrlsByWindow.set(sender.id, cleanServerUrl(serverUrl));
 }
 
@@ -84,7 +84,7 @@ async function readJson(response) {
   return JSON.parse(text);
 }
 
-// We use each window's own cookies so logins stay seperate from each other.
+// Each window uses its own cookies so logins stay seperate from each other
 async function fetchFromServer(sender, pathName, options = {}) {
   const serverBaseUrl = getWindowServerUrl(sender);
   const cookies = await sender.session.cookies.get({ url: serverBaseUrl });
@@ -116,7 +116,7 @@ async function fetchFromServer(sender, pathName, options = {}) {
 }
 
 async function fetchForWindow(event, pathName, options = {}) {
-  // This is a small wrapper so IPC handlers do not repeat event.sender everywhere.
+  // Small wrapper so IPC handlers do not repeat event.sender everywhere
   return fetchFromServer(event.sender, pathName, options);
 }
 
@@ -131,11 +131,8 @@ function isNotFoundError(error) {
 }
 
 async function getPeerKeys(event, peerUsername) {
-  // Before sending a message, we need the other person's public key bundle.
-  return fetchForWindow(
-    event,
-    `/keys/${encodeURIComponent(peerUsername)}`,
-  );
+  // Before sending a message, get the other person's public key bundle
+  return fetchForWindow(event, `/keys/${encodeURIComponent(peerUsername)}`);
 }
 
 function getSenderWindowTitle(event) {
@@ -164,17 +161,13 @@ async function logOutWindow(mainWindow) {
     if (!mainWindow.webContents.isLoadingMainFrame()) {
       await mainWindow.webContents.executeJavaScript(logoutScript, true);
     }
-  } catch {
-    // If the logout call misses during shutdown, clearing cookies still helps.
-  }
+  } catch {}
 
   try {
     await mainWindow.webContents.session.clearStorageData({
       storages: ["cookies"],
     });
-  } catch {
-    // Best effort is enough here.
-  }
+  } catch {}
 }
 
 function sendDebugLog(sender, event) {
@@ -189,10 +182,37 @@ function sendDebugLog(sender, event) {
 }
 
 function sendAllDebugLogs(sender, events) {
-  // Some chat operations produce many debug events, so we forward them in a loop.
+  // Some chat operations produce many debug events, so forward them in a loop
   for (const event of events) {
     sendDebugLog(sender, event);
   }
+}
+
+async function uploadCurrentKeyBundle(event, data) {
+  const bundle = await chatService.setUpUser({
+    userId: data.userId,
+    username: data.username,
+  });
+
+  await fetchForWindow(event, "/keys/bundle", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(bundle),
+  });
+
+  sendDebugLog(event.sender, {
+    stage: "keys",
+    action: "saveBundleToServer",
+    userId: data.userId,
+    username: data.username,
+    registrationId: bundle.registrationId,
+  });
+}
+
+function refreshKeyBundleInBackground(event, data) {
+  void uploadCurrentKeyBundle(event, data).catch((error) => {
+    console.error("Failed to refresh uploaded key bundle after decrypt", error);
+  });
 }
 
 function registerIpcHandlers() {
@@ -203,7 +223,7 @@ function registerIpcHandlers() {
 
   ipcMain.handle("chat:setUpUser", async (event, data) => {
     return runWithServerUrl(event, data.serverUrl, async () => {
-      // We create or load local keys, then upload the public bundle to the server.
+      // Create or load local keys, then upload the public bundle to the server.
       const bundle = await chatService.setUpUser(data);
 
       sendDebugLog(event.sender, {
@@ -240,6 +260,7 @@ function registerIpcHandlers() {
       const inbox = await fetchForWindow(event, "/inbox");
 
       return chatService.loadInbox({
+        serverUrl: data.serverUrl,
         userId: data.userId,
         messages: inbox,
       });
@@ -251,10 +272,24 @@ function registerIpcHandlers() {
       // We fetch raw encrypted messages first, then decrypt/filter them locally.
       const inbox = await fetchForWindow(event, "/inbox");
       const result = await chatService.loadChat({
+        serverUrl: data.serverUrl,
         userId: data.userId,
+        username: data.username,
         peerUsername: data.peerUsername,
         messages: inbox,
       });
+
+      if (
+        result.debugEvents.some(
+          (debugEvent) =>
+            debugEvent.stage === "message" &&
+            debugEvent.action === "decrypt" &&
+            debugEvent.result === "success" &&
+            debugEvent.messageType === "prekey",
+        )
+      ) {
+        refreshKeyBundleInBackground(event, data);
+      }
 
       sendAllDebugLogs(event.sender, result.debugEvents);
       return result.messages;
@@ -273,7 +308,9 @@ function registerIpcHandlers() {
         };
       } catch (error) {
         if (isNotFoundError(error)) {
-          throw new Error(`Could not find ${data.peerUsername} on this server.`);
+          throw new Error(
+            `Could not find ${data.peerUsername} on this server.`,
+          );
         }
 
         throw error;
@@ -299,6 +336,7 @@ function registerIpcHandlers() {
 
       // The local crypto service encrypts first, then we save ciphertext through the server.
       const result = await chatService.sendChat({
+        serverUrl: data.serverUrl,
         userId: data.userId,
         peerUsername: data.peerUsername,
         plaintext: data.plaintext,
