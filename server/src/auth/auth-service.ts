@@ -1,5 +1,5 @@
 import argon2 from "argon2";
-import { prisma } from "../db/database.js";
+import { prisma } from "../app/database.js";
 
 export interface AuthUser {
   id: string;
@@ -11,6 +11,7 @@ export async function registerUser(
   username: string,
   password: string
 ): Promise<AuthUser> {
+  // stop duplicate usernames first
   const existingUser = await prisma.user.findUnique({ where: { username } });
 
   if (existingUser) {
@@ -37,6 +38,7 @@ export async function loginUser(
   username: string,
   password: string
 ): Promise<AuthUser> {
+  // find the user and check the password
   const user = await prisma.user.findUnique({ where: { username } });
 
   if (!user) {

@@ -2,7 +2,7 @@
 // Just checking the handle text looks right.
 
 import { describe, expect, test } from "vitest";
-import { makeUserHandle } from "../../src/shared/userHandle";
+import { makeUserHandle } from "../../src/shared/user-handle";
 
 describe("unit tests", () => {
   test("it adds the server name onto a local username", () => {

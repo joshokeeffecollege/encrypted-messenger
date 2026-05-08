@@ -252,7 +252,7 @@ export class SavedKyberPreKeyStore extends KyberPreKeyStore {
 }
 
 export function getSavedStores(rootDir, userId) {
-  // libsignal needs a few little stores. We keep them on disk for this user.
+  // libsignal needs these small local stores
   return {
     sessionStore: new SavedSessionStore(rootDir, userId),
     identityStore: new SavedIdentityStore(rootDir, userId),

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "main": "electron/main.mjs",
+  "main": "electron/app/main.mjs",
   "scripts": {
     "server": "node scripts/server.mjs",
     "client": "node scripts/client.mjs",
@@ -15,7 +15,7 @@
     "build": "npm run build:client && npm run build:server",
     "test:client": "cd client && npm run test",
     "test:server": "cd server && npm run test",
-    "check:syntax": "node --check electron/main.mjs && node --check electron/preload.cjs && node --check scripts/server.mjs && node --check scripts/client.mjs",
+    "check:syntax": "node --check electron/app/main.mjs && node --check electron/app/preload.cjs && node --check scripts/server.mjs && node --check scripts/client.mjs",
     "ci": "npm run build && npm run test:server && npm run test:client && npm run check:syntax",
     "start": "electron ."
   },

@@ -11,7 +11,7 @@ import {
   getLocalHandle,
   getServerBaseUrl,
   getServerHost,
-} from "../../dist/config/server-config.js";
+} from "../../dist/app/config.js";
 
 function withServerEnv(env, run) {
   const oldPort = process.env.PORT;

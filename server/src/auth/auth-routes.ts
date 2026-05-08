@@ -1,30 +1,33 @@
 import { Router } from "express";
 import { loginUser, registerUser } from "./auth-service.js";
-import { prisma } from "../db/database.js";
+import { prisma } from "../app/database.js";
 import {
   requireSession,
   getLoggedInUserId,
   sendErrorResponse,
-} from "../http/routeHelpers.js";
+} from "../shared/http-response.js";
 
 export const authRoutes = Router();
 
-// Small helper for usernames on one server.
+// local usernames cant have a server part
 export function isValidLocalUsername(username: string) {
   return !username.includes("@");
 }
 
 authRoutes.post("/register", async (req, res) => {
+  // make a new local user
   const { username, password } = req.body as {
     username?: string;
     password?: string;
   };
 
   if (!username || !password) {
+    // both fields are needed for register
     return res.status(400).send("Username and password is required");
   }
 
   if (!isValidLocalUsername(username)) {
+    // this server only makes local usernames
     return res
       .status(400)
       .json({ error: "Usernames on this server cannot contain @" });
@@ -33,6 +36,7 @@ authRoutes.post("/register", async (req, res) => {
   const session = requireSession(req, res);
 
   if (!session) {
+    // helper already sent the error
     return;
   }
 
@@ -66,18 +70,21 @@ authRoutes.post("/register", async (req, res) => {
 });
 
 authRoutes.post("/login", async (req, res) => {
+  // check login and save user in session
   const { username, password } = req.body as {
     username?: string;
     password?: string;
   };
 
   if (!username || !password) {
+    // both fields are needed for login
     return res.status(400).send("Username and password is required");
   }
 
   const session = requireSession(req, res);
 
   if (!session) {
+    // helper already sent the error
     return;
   }
 
@@ -88,7 +95,6 @@ authRoutes.post("/login", async (req, res) => {
     console.log("User logged in", {
       userId: user.id,
       username: user.username,
-      note: "Client should now upload or reuse public key bundle",
     });
 
     return res.status(200).json(user);
@@ -112,9 +118,11 @@ authRoutes.post("/login", async (req, res) => {
 });
 
 authRoutes.post("/logout", (req, res) => {
+  // clear the current session
   const session = requireSession(req, res);
 
   if (!session) {
+    // helper already sent the error
     return;
   }
 
@@ -131,9 +139,11 @@ authRoutes.post("/logout", (req, res) => {
 });
 
 authRoutes.get("/me", async (req, res) => {
+  // send back the logged in user
   const userId = getLoggedInUserId(req, res);
 
   if (!userId) {
+    // helper already sent the error
     return;
   }
 
@@ -143,6 +153,7 @@ authRoutes.get("/me", async (req, res) => {
     });
 
     if (!user) {
+      // session pointed to a user that no longer exists
       return res.status(404).json({
         error: "User not found",
       });

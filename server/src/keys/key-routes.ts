@@ -6,17 +6,15 @@ import {
 } from "./key-service.js";
 import {
   getLocalOrRemoteKeys,
-  looksLikeRemoteHandle,
+  isRemoteChatHandle,
 } from "../federation/federation-service.js";
-import { getLocalUsername } from "../config/server-config.js";
-import {
-  shortText,
-  getLoggedInUserId,
-} from "../http/routeHelpers.js";
+import { getLocalUsername } from "../app/config.js";
+import { shortText, getLoggedInUserId } from "../shared/http-response.js";
 
 export const keyRoutes = Router();
 
 function isValidKeyBundleInput(input: unknown): input is PublicKeyBundleInput {
+  // quick check that the bundle shape looks right
   if (!input || typeof input !== "object") {
     return false;
   }
@@ -60,6 +58,7 @@ function isValidKeyBundleInput(input: unknown): input is PublicKeyBundleInput {
 }
 
 keyRoutes.post("/bundle", async (req, res) => {
+  // save this users public keys
   const userId = getLoggedInUserId(req, res);
 
   if (!userId) {
@@ -94,6 +93,7 @@ keyRoutes.post("/bundle", async (req, res) => {
 });
 
 keyRoutes.get("/:username", async (req, res) => {
+  // get keys for local or remote user
   const userId = getLoggedInUserId(req, res);
 
   if (!userId) {
@@ -104,7 +104,7 @@ keyRoutes.get("/:username", async (req, res) => {
 
   try {
     const localUsername = getLocalUsername(username) ?? username;
-    const bundle = looksLikeRemoteHandle(username)
+    const bundle = isRemoteChatHandle(username)
       ? await getLocalOrRemoteKeys(username)
       : await getPublicKeys(localUsername);
 

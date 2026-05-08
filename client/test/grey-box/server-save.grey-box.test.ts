@@ -21,7 +21,7 @@ describe("grey box tests", () => {
   });
 
   test("it saves the cleaned server address", async () => {
-    const { setServerUrl, getServerUrl } = await import("../../src/api/http");
+    const { setServerUrl, getServerUrl } = await import("../../src/app/server");
 
     setServerUrl("  http://127.0.0.1:5001/  ");
 
@@ -32,7 +32,7 @@ describe("grey box tests", () => {
   });
 
   test("it removes the saved server if the box is blank", async () => {
-    const { setServerUrl, getServerUrl } = await import("../../src/api/http");
+    const { setServerUrl, getServerUrl } = await import("../../src/app/server");
 
     setServerUrl("http://127.0.0.1:5001");
     setServerUrl("   ");

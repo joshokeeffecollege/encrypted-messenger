@@ -2,7 +2,7 @@
 // These know about the different branches in the server url cleanup code.
 
 import { describe, expect, test } from "vitest";
-import { cleanServerUrl } from "../../src/api/http";
+import { cleanServerUrl } from "../../src/app/server";
 
 describe("white box tests", () => {
   test("it trims spaces and removes the slash at the end", () => {

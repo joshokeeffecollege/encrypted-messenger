@@ -5,9 +5,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   getLocalUsername,
-  isRemoteHandle,
+  isRemoteChatHandle,
   parseHandle,
-} from "../../dist/config/server-config.js";
+} from "../../dist/app/config.js";
 
 function withServerEnv(env, run) {
   const oldBaseUrl = process.env.PUBLIC_BASE_URL;
@@ -61,8 +61,8 @@ test("it tells local and remote names apart", () => {
       PUBLIC_BASE_URL: "http://127.0.0.1:5009",
     },
     () => {
-      assert.equal(isRemoteHandle("bob@server-b.com"), true);
-      assert.equal(isRemoteHandle("bob@127.0.0.1:5009"), false);
+      assert.equal(isRemoteChatHandle("bob@server-b.com"), true);
+      assert.equal(isRemoteChatHandle("bob@127.0.0.1:5009"), false);
       assert.equal(getLocalUsername("bob"), "bob");
       assert.equal(getLocalUsername("@bob"), "bob");
       assert.equal(getLocalUsername("bob@127.0.0.1:5009"), "bob");

@@ -22,7 +22,7 @@ async function makeFolder(folderPath) {
 }
 
 export async function saveText(rootDir, userId, sectionName, itemId, value) {
-  // Each user gets their own folders so their local data stays seperate.
+  // each user gets their own local folder stuff
   await makeFolder(getSectionFolder(rootDir, userId, sectionName));
   await fs.writeFile(
     getRecordPath(rootDir, userId, sectionName, itemId),

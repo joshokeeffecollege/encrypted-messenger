@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { makeSessionTools } from "../../src/app/sessionTools";
+import { makeSessionTools } from "../../src/app/session";
 
 describe("session controller", () => {
   test("it bootstraps the saved session when /auth/me works", async () => {

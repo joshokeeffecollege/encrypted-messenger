@@ -86,7 +86,7 @@ export async function saveMessageText(
 }
 
 export function makeChatMessage(message, userId, displayText, state) {
-  // This is the simple shape the React app uses on screen.
+  // this is the chat shape react wants
   return {
     id: message.id,
     senderId: message.senderId,
@@ -101,6 +101,7 @@ export function makeChatMessage(message, userId, displayText, state) {
 }
 
 export async function buildInbox(rootDir, data) {
+  // turn all messages into one inbox list
   const { userId, messages, serverUrl } = data;
   const chatList = new Map();
 

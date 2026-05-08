@@ -115,7 +115,7 @@ export async function createAndSaveKeys(rootDir, userId) {
     throw new Error("Keys already exist for this user");
   }
 
-  // These are the main keys for this user on this device.
+  // these are the main keys for this user here
   const identityKeys = IdentityKeyPair.generate();
   const registrationId = Math.floor(Math.random() * 16383) + 1;
 
@@ -162,7 +162,7 @@ export async function createAndSaveKeys(rootDir, userId) {
 
   const oneTimeKeys = [];
 
-  // These extra keys let somebody send the first message to you.
+  // these extra keys help start new chats
   for (let id = 1; id <= 10; id += 1) {
     const preKeyPrivate = IdentityKeyPair.generate().privateKey;
     const preKeyPublic = preKeyPrivate.getPublicKey();

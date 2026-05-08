@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { makeUserHandle } from "../../src/shared/userHandle";
+import { makeUserHandle } from "../../src/shared/user-handle";
 
 describe("black box tests", () => {
   test("normal local names come back as user@server", () => {

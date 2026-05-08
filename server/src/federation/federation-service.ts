@@ -1,6 +1,9 @@
 import { createHash, createSign, createVerify } from "node:crypto";
-import { prisma } from "../db/database.js";
-import { getPublicKeys, type PublicKeyBundleResponse } from "../keys/key-service.js";
+import { prisma } from "../app/database.js";
+import {
+  getPublicKeys,
+  type PublicKeyBundleResponse,
+} from "../keys/key-service.js";
 import {
   getActivityUrl,
   getActorUrl,
@@ -9,9 +12,9 @@ import {
   getLocalHandle,
   getServerBaseUrl,
   getServerHost,
-  isRemoteHandle,
+  isRemoteChatHandle as isRemoteHandleFromConfig,
   parseHandle,
-} from "../config/server-config.js";
+} from "../app/config.js";
 import { getServerKeys, makePublicKeyFromPem } from "./server-keys.js";
 
 export interface RemoteActor {
@@ -49,10 +52,11 @@ export interface EncryptedChatActivity {
   };
 }
 
-// This file handles server-to-server chat.
-// It follows the Mastodon style a bit, but our message body stays encrypted.
+// this file does server to server chat stuff
+// it works a bit like mastodon but message text stays encrypted
 
 function getRemoteBaseUrl(domain: string) {
+  // local test servers use http but normal ones use https
   if (domain.startsWith("127.0.0.1") || domain.startsWith("localhost")) {
     return `http://${domain}`;
   }
@@ -61,10 +65,12 @@ function getRemoteBaseUrl(domain: string) {
 }
 
 async function fetchJson(url: string, init?: RequestInit) {
+  // fetch json from another server
   const response = await fetch(url, {
     ...init,
     headers: {
-      Accept: "application/activity+json, application/json, application/jrd+json",
+      Accept:
+        "application/activity+json, application/json, application/jrd+json",
       ...(init?.headers ?? {}),
     },
   });
@@ -79,11 +85,13 @@ async function fetchJson(url: string, init?: RequestInit) {
 }
 
 function getHandleFromActor(actor: RemoteActor) {
+  // turn the actor url and username into user@server
   const actorUrl = new URL(actor.id);
   return `${actor.preferredUsername}@${actorUrl.host}`;
 }
 
 async function saveRemoteAccount(actor: RemoteActor) {
+  // save what we learned about the remote user
   const handle = getHandleFromActor(actor);
   const parsed = parseHandle(handle);
 
@@ -116,6 +124,7 @@ async function saveRemoteAccount(actor: RemoteActor) {
 }
 
 export async function getWebFingerDocument(username: string) {
+  // this is the small lookup doc for one local user
   const user = await prisma.user.findUnique({ where: { username } });
 
   if (!user) {
@@ -134,7 +143,10 @@ export async function getWebFingerDocument(username: string) {
   };
 }
 
-export async function getActorDocument(username: string): Promise<RemoteActor | null> {
+export async function getActorDocument(
+  username: string,
+): Promise<RemoteActor | null> {
+  // this is the activitypub style profile for one local user
   const user = await prisma.user.findUnique({ where: { username } });
 
   if (!user) {
@@ -159,6 +171,7 @@ export async function getActorDocument(username: string): Promise<RemoteActor | 
 }
 
 export async function resolveRemoteAccount(handleText: string) {
+  // find a remote user by doing webfinger then actor fetch
   const parsed = parseHandle(handleText);
 
   if (!parsed) {
@@ -170,6 +183,7 @@ export async function resolveRemoteAccount(handleText: string) {
   }
 
   const webFingerUrl =
+    // first ask the remote server where that user profile lives
     `${getRemoteBaseUrl(parsed.domain)}/.well-known/webfinger?resource=` +
     encodeURIComponent(`acct:${parsed.handle}`);
   const webFinger = await fetchJson(webFingerUrl);
@@ -197,6 +211,7 @@ export async function resolveRemoteAccount(handleText: string) {
 }
 
 export async function fetchRemoteKeys(handleText: string) {
+  // after finding the remote user get their chat keys too
   const remoteAccount = await resolveRemoteAccount(handleText);
   const data = (await fetchJson(
     remoteAccount.keyBundleUrl,
@@ -209,6 +224,7 @@ export async function fetchRemoteKeys(handleText: string) {
 }
 
 function makeDigest(text: string) {
+  // digest lets the other server check body integrity
   const hash = createHash("sha256").update(text, "utf8").digest("base64");
   return `SHA-256=${hash}`;
 }
@@ -219,6 +235,7 @@ function buildSignatureText(
   date: string,
   digest: string,
 ) {
+  // this is the exact text that gets signed and checked
   const url = new URL(requestUrl);
 
   return [
@@ -230,6 +247,7 @@ function buildSignatureText(
 }
 
 function readSignatureParts(signatureHeader: string) {
+  // break the signature header into easy key value parts
   const parts: Record<string, string> = {};
 
   for (const piece of signatureHeader.split(",")) {
@@ -260,7 +278,9 @@ export async function sendRemoteEncryptedMessage(
     };
   },
 ) {
+  // build the outgoing activity object for the remote inbox
   const remoteAccount = await resolveRemoteAccount(recipientHandle);
+  // actor url is our local sender identity on the network
   const actorUrl = getActorUrl(senderUsername);
   const recipientActorUrl = remoteAccount.actorUrl;
   const activity: EncryptedChatActivity = {
@@ -281,6 +301,7 @@ export async function sendRemoteEncryptedMessage(
     },
   };
   const body = JSON.stringify(activity);
+  // sign the body like a normal federation request
   const date = new Date().toUTCString();
   const digest = makeDigest(body);
   const signatureText = buildSignatureText(
@@ -307,17 +328,20 @@ export async function sendRemoteEncryptedMessage(
   });
 
   if (!response.ok) {
+    // bubble up the remote server error text if it sent one
     const text = await response.text();
     throw new Error(text || "Remote server rejected encrypted message");
   }
 
   return {
+    // give back the saved remote info and activity id
     activityId: activity.id,
     remoteAccount,
   };
 }
 
 async function getActorFromKeyId(keyId: string) {
+  // load the remote actor again so we can trust the public key
   const actorUrl = keyId.replace(/#main-key$/, "");
   const actor = (await fetchJson(actorUrl)) as RemoteActor;
 
@@ -339,29 +363,37 @@ export async function verifySignedRequest(
     signature?: string;
   },
 ) {
+  // incoming federation posts must be signed
   if (!headers.signature || !headers.date || !headers.digest) {
     throw new Error("Missing signed federation headers");
   }
 
   const sentAt = new Date(headers.date).getTime();
 
-  if (!Number.isFinite(sentAt) || Math.abs(Date.now() - sentAt) > 12 * 60 * 60 * 1000) {
+  if (
+    !Number.isFinite(sentAt) ||
+    Math.abs(Date.now() - sentAt) > 12 * 60 * 60 * 1000
+  ) {
+    // old signed requests should not be accepted
     throw new Error("Signed request is too old");
   }
 
   const expectedDigest = makeDigest(rawBody);
 
   if (expectedDigest !== headers.digest) {
+    // body changed so reject it
     throw new Error("Request digest does not match the body");
   }
 
   const signatureParts = readSignatureParts(headers.signature);
 
   if (!signatureParts.keyId || !signatureParts.signature) {
+    // need both the key id and the actual signature
     throw new Error("Signature header is missing key information");
   }
 
   const actor = await getActorFromKeyId(signatureParts.keyId);
+  // rebuild the signed text exactly the same way
   const signatureText = buildSignatureText(
     method,
     requestUrl,
@@ -377,6 +409,7 @@ export async function verifySignedRequest(
   );
 
   if (!isValid) {
+    // final signature check failed
     throw new Error("Signature check failed");
   }
 
@@ -387,7 +420,11 @@ export async function saveIncomingFederatedMessage(
   localUsername: string,
   activity: EncryptedChatActivity,
 ) {
-  if (activity.type !== "Create" || activity.object?.type !== "EncryptedMessage") {
+  // this saves one incoming remote message in the local db
+  if (
+    activity.type !== "Create" ||
+    activity.object?.type !== "EncryptedMessage"
+  ) {
     throw new Error("Unsupported federation activity");
   }
 
@@ -400,16 +437,20 @@ export async function saveIncomingFederatedMessage(
   }
 
   if (activity.object.recipient !== getLocalHandle(localUsername)) {
+    // make sure the message really belongs in this inbox
     throw new Error("Message recipient does not match this inbox");
   }
 
   const parsedSender = parseHandle(activity.object.sender);
 
   if (!parsedSender || parsedSender.domain === getServerHost()) {
-    throw new Error("Incoming federated message must come from a remote handle");
+    throw new Error(
+      "Incoming federated message must come from a remote handle",
+    );
   }
 
   const actor = await getActorFromKeyId(`${activity.actor}#main-key`);
+  // save sender info and ignore duplicates if we already stored it
   const remoteAccount = await saveRemoteAccount(actor);
   const savedHeader = JSON.stringify({
     type: activity.object.messageType,
@@ -420,6 +461,7 @@ export async function saveIncomingFederatedMessage(
   });
 
   if (existingMessage) {
+    // same remote activity should not be saved twice
     return existingMessage;
   }
 
@@ -440,12 +482,14 @@ export async function saveIncomingFederatedMessage(
   });
 }
 
-export function looksLikeRemoteHandle(value: string) {
-  return isRemoteHandle(value);
+export function isRemoteChatHandle(value: string) {
+  // just re export the config helper from here too
+  return isRemoteHandleFromConfig(value);
 }
 
 export async function getLocalOrRemoteKeys(nameOrHandle: string) {
-  if (!looksLikeRemoteHandle(nameOrHandle)) {
+  // local users read from db and remote users fetch over federation
+  if (!isRemoteChatHandle(nameOrHandle)) {
     return getPublicKeys(nameOrHandle);
   }
 
@@ -453,17 +497,21 @@ export async function getLocalOrRemoteKeys(nameOrHandle: string) {
 }
 
 export async function checkChatHandle(nameOrHandle: string) {
+  // this helps the app search for local or remote chat targets
   const trimmed = nameOrHandle.trim().replace(/^@/, "");
 
   if (!trimmed) {
     throw new Error("Enter a username first");
   }
 
-  if (!looksLikeRemoteHandle(trimmed)) {
+  if (!isRemoteChatHandle(trimmed)) {
+    // local search just checks this server db
     const localKeys = await getPublicKeys(trimmed);
 
     if (!localKeys) {
-      throw new Error(`No account named ${trimmed} is ready on this server yet.`);
+      throw new Error(
+        `No account named ${trimmed} is ready on this server yet.`,
+      );
     }
 
     return {
@@ -477,6 +525,7 @@ export async function checkChatHandle(nameOrHandle: string) {
   const remoteKeys = await fetchRemoteKeys(trimmed);
 
   return {
+    // remote search gives back the full remote handle
     found: true,
     handle: remoteKeys.username,
     username: remoteKeys.username,

@@ -1,4 +1,4 @@
-import { prisma } from "../db/database.js";
+import { prisma } from "../app/database.js";
 
 export interface PublicKeyBundleInput {
   registrationId: number;
@@ -23,7 +23,7 @@ export interface PublicKeyBundleResponse extends PublicKeyBundleInput {
   username: string;
 }
 
-// We only save public keys here. Private keys stay on the user's device.
+// only public keys go in the server db
 export async function savePublicKeys(
   userId: string,
   keyBundle: PublicKeyBundleInput,
@@ -59,6 +59,7 @@ export async function savePublicKeys(
 export async function getPublicKeys(
   username: string,
 ): Promise<PublicKeyBundleResponse | null> {
+  // load saved public keys for one user
   const user = await prisma.user.findUnique({
     where: { username },
     include: { keyBundle: true },

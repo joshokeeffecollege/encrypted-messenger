@@ -1,14 +1,15 @@
 import path from "node:path";
 import { getSavedOrNewKeys } from "../encryption/user-keys.mjs";
-import { buildInbox } from "./message-cache.mjs";
-import { loadChatMessages, sendChatMessage } from "./chat-messages.mjs";
+import { loadInbox } from "./load-inbox.mjs";
+import { loadChat } from "./load-chat.mjs";
+import { sendMessage } from "./send-message.mjs";
 
 async function setUpUser(rootDir, data) {
   return getSavedOrNewKeys(rootDir, data.userId);
 }
 
 export function createChatService({ dataDir }) {
-  // Electron saves local chat and crypto data here on this computer.
+  // electron keeps local crypto files here
   const rootDir = path.join(dataDir, "signal");
 
   return {
@@ -16,13 +17,13 @@ export function createChatService({ dataDir }) {
       return setUpUser(rootDir, data);
     },
     loadChat(data) {
-      return loadChatMessages(rootDir, data);
+      return loadChat(rootDir, data);
     },
     loadInbox(data) {
-      return buildInbox(rootDir, data);
+      return loadInbox(rootDir, data);
     },
     sendChat(data) {
-      return sendChatMessage(rootDir, data);
+      return sendMessage(rootDir, data);
     },
   };
 }

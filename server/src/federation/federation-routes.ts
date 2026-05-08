@@ -7,7 +7,7 @@ import {
   verifySignedRequest,
   type EncryptedChatActivity,
 } from "./federation-service.js";
-import { getLocalHandle } from "../config/server-config.js";
+import { getLocalHandle } from "../app/config.js";
 
 export const webFingerRoutes = Router();
 export const federationRoutes = Router();
