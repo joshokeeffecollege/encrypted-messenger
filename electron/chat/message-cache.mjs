@@ -43,6 +43,42 @@ function getPeerCacheKeys(peerUsername, serverUrl = "") {
   return Array.from(keys);
 }
 
+function parseSavedMessage(value) {
+  return JSON.parse(value);
+}
+
+function getSavedMessageRank(savedMessage) {
+  if (!savedMessage) {
+    return -1;
+  }
+
+  if (savedMessage.state === "resolved") {
+    return 3;
+  }
+
+  if (savedMessage.state === "encrypted-placeholder") {
+    return 2;
+  }
+
+  if (savedMessage.state === "failed") {
+    return 1;
+  }
+
+  return 0;
+}
+
+function chooseSavedMessage(currentMessage, nextMessage) {
+  if (!currentMessage) {
+    return nextMessage;
+  }
+
+  if (getSavedMessageRank(currentMessage) >= getSavedMessageRank(nextMessage)) {
+    return currentMessage;
+  }
+
+  return nextMessage;
+}
+
 export async function readSavedMessage(
   rootDir,
   userId,
@@ -50,6 +86,8 @@ export async function readSavedMessage(
   messageId,
   serverUrl = "",
 ) {
+  let bestSavedMessage = null;
+
   for (const cacheKey of getPeerCacheKeys(peerUsername, serverUrl)) {
     const value = await loadText(
       rootDir,
@@ -59,11 +97,11 @@ export async function readSavedMessage(
     );
 
     if (value) {
-      return JSON.parse(value);
+      bestSavedMessage = chooseSavedMessage(bestSavedMessage, parseSavedMessage(value));
     }
   }
 
-  return null;
+  return bestSavedMessage;
 }
 
 export async function saveMessageText(
@@ -75,12 +113,23 @@ export async function saveMessageText(
   serverUrl = "",
 ) {
   for (const cacheKey of getPeerCacheKeys(peerUsername, serverUrl)) {
+    const existingValue = await loadText(
+      rootDir,
+      userId,
+      "message-cache",
+      makeSavedMessageId(cacheKey, messageId),
+    );
+    const existingMessage = existingValue
+      ? parseSavedMessage(existingValue)
+      : null;
+    const messageToSave = chooseSavedMessage(existingMessage, savedMessage);
+
     await saveText(
       rootDir,
       userId,
       "message-cache",
       makeSavedMessageId(cacheKey, messageId),
-      JSON.stringify(savedMessage),
+      JSON.stringify(messageToSave),
     );
   }
 }

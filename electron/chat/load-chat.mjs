@@ -69,6 +69,10 @@ function isDuplicateMessage(error) {
   );
 }
 
+function shouldUseSavedMessage(savedMessage) {
+  return Boolean(savedMessage);
+}
+
 export async function loadChat(rootDir, data) {
   // build one full chat for the selected person
   const debugLogs = [];
@@ -94,7 +98,7 @@ export async function loadChat(rootDir, data) {
       data.serverUrl,
     );
 
-    if (savedMessage) {
+    if (shouldUseSavedMessage(savedMessage)) {
       // if we already saved the plain text before use that
       chatMessages.push(
         makeChatMessage(
@@ -159,13 +163,27 @@ export async function loadChat(rootDir, data) {
         makeChatMessage(message, data.userId, plaintext, "resolved"),
       );
     } catch (error) {
-      // save a placeholder if decrypt failed or was duplicate
       const duplicate = isDuplicateMessage(error);
-      const displayText = duplicate
-        ? "[Encrypted message already decrypted on this device]"
-        : "[Unable to decrypt message]";
-      const state = duplicate ? "duplicate" : "failed";
       const errorText = error instanceof Error ? error.message : String(error);
+      const existingMessage = await readSavedMessage(
+        rootDir,
+        data.userId,
+        data.peerUsername,
+        message.id,
+        data.serverUrl,
+      );
+      const displayText =
+        duplicate && existingMessage?.displayText
+          ? existingMessage.displayText
+          : duplicate
+            ? "[Encrypted message already decrypted on this device]"
+            : "[Unable to decrypt message]";
+      const state =
+        duplicate && existingMessage?.displayText
+          ? existingMessage.state ?? "resolved"
+          : duplicate
+            ? "duplicate"
+            : "failed";
 
       await saveMessageText(
         rootDir,
