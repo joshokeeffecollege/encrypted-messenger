@@ -25,6 +25,17 @@ function getSenderWindowTitle(event) {
   return mainWindow?.getTitle() ?? "Encrypted Messenger";
 }
 
+function isServerUnreachableError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return (
+    message.includes("Failed to retrieve key bundle") ||
+    message.includes("fetch failed") ||
+    message.includes("ECONNREFUSED") ||
+    message.includes("ENOTFOUND")
+  );
+}
+
 export function registerChatIpc({
   chatService,
   fetchForEvent,
@@ -98,6 +109,10 @@ export function registerChatIpc({
         throw new Error(`Could not find ${data.peerUsername} on this server.`);
       }
 
+      if (isServerUnreachableError(error)) {
+        throw new Error("The requested server is currently unreachable.");
+      }
+
       throw error;
     }
   });
@@ -112,6 +127,10 @@ export function registerChatIpc({
       peerBundle = await getPeerKeys(event, data.peerUsername);
     } catch (error) {
       if (!isNotFoundError(error)) {
+        if (isServerUnreachableError(error)) {
+          throw new Error("The requested server is currently unreachable.");
+        }
+
         throw error;
       }
 

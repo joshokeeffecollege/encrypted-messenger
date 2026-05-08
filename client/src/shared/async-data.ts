@@ -2,7 +2,20 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 export function getErrorText(error: unknown, fallbackMessage: string) {
   // keep the error text simple
-  return error instanceof Error ? error.message : fallbackMessage;
+  if (!(error instanceof Error)) {
+    return fallbackMessage;
+  }
+
+  const cleanedMessage = error.message.replace(
+    /^Error invoking remote method '[^']+': Error: /,
+    "",
+  );
+
+  if (cleanedMessage === "Failed to retrieve key bundle") {
+    return "The requested server is currently unreachable.";
+  }
+
+  return cleanedMessage;
 }
 
 export function useAction<TArgs extends unknown[], TResult>(
