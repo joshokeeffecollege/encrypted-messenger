@@ -3,6 +3,7 @@ import { makeSessionTools } from "../../src/app/session";
 
 describe("session controller", () => {
   test("it bootstraps the saved session when /auth/me works", async () => {
+    // set up a fake api and fake desktop chat
     const api = {
       get: vi.fn().mockResolvedValue({
         id: "u1",
@@ -17,8 +18,10 @@ describe("session controller", () => {
     };
     const controller = makeSessionTools({ api, desktopChat });
 
+    // try the restore now
     const user = await controller.restore("http://127.0.0.1:5001");
 
+    // make sure the user came back and local setup happened
     expect(user?.username).toBe("alice");
     expect(desktopChat.setServerUrl).toHaveBeenCalledWith("http://127.0.0.1:5001");
     expect(desktopChat.setUpUser).toHaveBeenCalledWith({
@@ -29,6 +32,7 @@ describe("session controller", () => {
   });
 
   test("it logs out again if login bootstrap fails", async () => {
+    // this time the local setup will fail on purpose
     const api = {
       get: vi.fn(),
       post: vi.fn().mockResolvedValue({}),
@@ -39,6 +43,7 @@ describe("session controller", () => {
     };
     const controller = makeSessionTools({ api, desktopChat });
 
+    // the login finish step should throw here
     await expect(
       controller.completeLogin("http://127.0.0.1:5001", {
         id: "u1",
@@ -47,6 +52,7 @@ describe("session controller", () => {
       }),
     ).rejects.toThrow("bootstrap failed");
 
+    // after that it should try to log out again
     expect(api.post).toHaveBeenCalledWith("/auth/logout");
   });
 });

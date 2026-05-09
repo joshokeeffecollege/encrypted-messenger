@@ -1,5 +1,5 @@
-// These are white box tests.
-// These ones know a bit more about how the parsing code is writen.
+// these are white box tests
+// these know a bit more about the parser branches
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -10,6 +10,7 @@ import {
 } from "../../dist/app/config.js";
 
 function withServerEnv(env, run) {
+  // keep the old env so this test file does not leak changes
   const oldBaseUrl = process.env.PUBLIC_BASE_URL;
 
   if (env.PUBLIC_BASE_URL === undefined) {
@@ -30,6 +31,7 @@ function withServerEnv(env, run) {
 }
 
 test("it trims spaces and the @ at the start", () => {
+  // this should clean the text before splitting the handle
   const parsed = parseHandle("  @bob@example.com  ");
 
   assert.deepEqual(parsed, {
@@ -40,6 +42,7 @@ test("it trims spaces and the @ at the start", () => {
 });
 
 test("it uses the last @ if the name is a bit weird", () => {
+  // this checks the branch that uses the last @ sign
   const parsed = parseHandle("team@chat@example.com");
 
   assert.deepEqual(parsed, {
@@ -50,17 +53,20 @@ test("it uses the last @ if the name is a bit weird", () => {
 });
 
 test("it gives back null for bad handle inputs", () => {
+  // these are bad shapes so the parser should stop
   assert.equal(parseHandle("bob"), null);
   assert.equal(parseHandle("bob@"), null);
   assert.equal(parseHandle("@example.com"), null);
 });
 
 test("it tells local and remote names apart", () => {
+  // this branch needs the current server host to compare against
   withServerEnv(
     {
       PUBLIC_BASE_URL: "http://127.0.0.1:5009",
     },
     () => {
+      // remote names stay remote and local names stay local
       assert.equal(isRemoteChatHandle("bob@server-b.com"), true);
       assert.equal(isRemoteChatHandle("bob@127.0.0.1:5009"), false);
       assert.equal(getLocalUsername("bob"), "bob");

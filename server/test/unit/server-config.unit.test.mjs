@@ -1,5 +1,5 @@
-// These are the small helper tests.
-// Just checking the basic server url stuff works.
+// these are small helper tests
+// just checking the basic server url stuff works
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -14,6 +14,7 @@ import {
 } from "../../dist/app/config.js";
 
 function withServerEnv(env, run) {
+  // save the old env first so each test can put it back
   const oldPort = process.env.PORT;
   const oldBaseUrl = process.env.PUBLIC_BASE_URL;
 
@@ -47,12 +48,14 @@ function withServerEnv(env, run) {
 }
 
 test("uses the public base url if it is there", () => {
+  // set the env like a server with a public base url
   withServerEnv(
     {
       PUBLIC_BASE_URL: "http://127.0.0.1:6001/",
       PORT: "5001",
     },
     () => {
+      // this should use the public base url and trim the slash
       assert.equal(getServerBaseUrl(), "http://127.0.0.1:6001");
       assert.equal(getServerHost(), "127.0.0.1:6001");
     },
@@ -60,12 +63,14 @@ test("uses the public base url if it is there", () => {
 });
 
 test("uses the port if there is no public base url", () => {
+  // here it has to build the local dev url from the port
   withServerEnv(
     {
       PORT: "5012",
       PUBLIC_BASE_URL: undefined,
     },
     () => {
+      // the local handle should use that same host too
       assert.equal(getServerBaseUrl(), "http://127.0.0.1:5012");
       assert.equal(getLocalHandle("alice"), "alice@127.0.0.1:5012");
     },
@@ -73,6 +78,7 @@ test("uses the port if there is no public base url", () => {
 });
 
 test("builds the federation urls from the current server url", () => {
+  // these helpers should all build urls from the same base
   withServerEnv(
     {
       PUBLIC_BASE_URL: "http://127.0.0.1:5007",
